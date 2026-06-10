@@ -8,7 +8,8 @@ import {
   Bookmark, 
   FolderOpen,
   Filter,
-  Tag
+  Tag,
+  Download
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import LinkCard from "../components/LinkCard";
@@ -17,9 +18,10 @@ import AddEditLinkModal from "../components/AddEditLinkModal";
 import CategoryManagerModal from "../components/CategoryManagerModal";
 import FirebaseSettingsModal from "../components/FirebaseSettingsModal";
 import ExtensionModal from "../components/ExtensionModal";
+import InstallAppModal from "../components/InstallAppModal";
 
 export default function Dashboard() {
-  const { links, categories } = useApp();
+  const { links, categories, isInstalled, isInstallable, isIOS } = useApp();
 
   // Estados dos filtros
   const [selectedCategoryId, setSelectedCategoryId] = useState("all");
@@ -34,6 +36,7 @@ export default function Dashboard() {
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [extensionOpen, setExtensionOpen] = useState(false);
+  const [installOpen, setInstallOpen] = useState(false);
 
   // Responsividade Mobile
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -126,7 +129,19 @@ export default function Dashboard() {
           <Bookmark size={20} style={{ color: "var(--accent)", fill: "currentColor" }} />
           <span style={{ fontWeight: 700, fontFamily: "var(--font-heading)" }}>Eullon Links</span>
         </div>
-        <ThemeToggle />
+        <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+          {!isInstalled && (isInstallable || isIOS) && (
+            <button 
+              onClick={() => setInstallOpen(true)}
+              className="btn-icon-only"
+              title="Instalar App"
+              style={{ color: "var(--accent)" }}
+            >
+              <Download size={20} />
+            </button>
+          )}
+          <ThemeToggle />
+        </div>
       </header>
 
       {/* PAINEL LATERAL (SIDEBAR) */}
@@ -138,6 +153,7 @@ export default function Dashboard() {
         onOpenCategories={() => setCategoriesOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenExtension={() => setExtensionOpen(true)}
+        onOpenInstall={() => setInstallOpen(true)}
         isOpenMobile={mobileSidebarOpen}
         onCloseMobile={() => setMobileSidebarOpen(false)}
       />
@@ -396,6 +412,12 @@ export default function Dashboard() {
       <ExtensionModal
         isOpen={extensionOpen}
         onClose={() => setExtensionOpen(false)}
+      />
+
+      {/* MODAL DE INSTALAÇÃO DO APP (PWA) */}
+      <InstallAppModal
+        isOpen={installOpen}
+        onClose={() => setInstallOpen(false)}
       />
 
       {/* CSS extra para regras desktop/mobile específicas no layout do Dashboard */}

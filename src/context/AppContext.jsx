@@ -58,6 +58,61 @@ export const AppProvider = ({ children }) => {
   // Configuração ativa do Firebase
   const [firebaseConfigured, setFirebaseConfigured] = useState(isFirebaseConfigured);
 
+  // --- Estados do PWA (Progressive Web App) ---
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [isInstallable, setIsInstallable] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+
+  useEffect(() => {
+    // 1. Detectar se o aplicativo já está instalado / rodando standalone
+    const checkInstalled = () => {
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+      setIsInstalled(!!isStandalone);
+    };
+
+    checkInstalled();
+    
+    // 2. Detectar se o dispositivo é iOS
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const isDeviceIOS = /iphone|ipad|ipod/.test(userAgent);
+    setIsIOS(isDeviceIOS);
+
+    // 3. Ouvir o evento beforeinstallprompt do Chrome/Edge/Android
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setIsInstallable(true);
+    };
+
+    // 4. Ouvir o evento de aplicativo instalado
+    const handleAppInstalled = () => {
+      setIsInstalled(true);
+      setIsInstallable(false);
+      setDeferredPrompt(null);
+      console.log('Eullon Links instalado com sucesso!');
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  // Função para disparar a instalação
+  const installApp = async () => {
+    if (!deferredPrompt) return false;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`Escolha de instalação do usuário: ${outcome}`);
+    setDeferredPrompt(null);
+    setIsInstallable(false);
+    return outcome === 'accepted';
+  };
+
   // Aplica o tema inicial
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -458,7 +513,11 @@ export const AppProvider = ({ children }) => {
       loginWithEmail,
       loginWithGoogle,
       logoutUser,
-      updateFirebaseConfig
+      updateFirebaseConfig,
+      isInstallable,
+      isInstalled,
+      isIOS,
+      installApp
     }}>
       {children}
     </AppContext.Provider>

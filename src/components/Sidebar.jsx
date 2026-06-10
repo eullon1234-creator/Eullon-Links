@@ -12,7 +12,8 @@ import {
   ChevronRight,
   TrendingUp,
   FolderOpen,
-  Puzzle
+  Puzzle,
+  Download
 } from "lucide-react";
 import { CategoryIcon } from "./CategoryManagerModal";
 
@@ -24,6 +25,7 @@ export default function Sidebar({
   onOpenCategories, 
   onOpenSettings,
   onOpenExtension,
+  onOpenInstall,
   isOpenMobile,
   onCloseMobile
 }) {
@@ -32,7 +34,8 @@ export default function Sidebar({
     firebaseConfigured, 
     categories, 
     links, 
-    logoutUser 
+    logoutUser,
+    isInstalled
   } = useApp();
 
   // Função para contar links em uma categoria
@@ -57,6 +60,11 @@ export default function Sidebar({
 
   const handleExtensionClick = () => {
     if (onOpenExtension) onOpenExtension();
+    if (onCloseMobile) onCloseMobile();
+  };
+
+  const handleInstallClick = () => {
+    if (onOpenInstall) onOpenInstall();
     if (onCloseMobile) onCloseMobile();
   };
 
@@ -241,8 +249,8 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* Extensão do Navegador */}
-      <div style={{ marginBottom: "1.25rem", borderTop: "1px solid var(--border-color)", paddingTop: "1.25rem" }}>
+      {/* Extensão e Instalação */}
+      <div style={{ marginBottom: "1.25rem", borderTop: "1px solid var(--border-color)", paddingTop: "1.25rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
         <button
           onClick={handleExtensionClick}
           className="category-item"
@@ -276,6 +284,44 @@ export default function Sidebar({
           </span>
           <ChevronRight size={14} />
         </button>
+
+        {!isInstalled && (
+          <button
+            onClick={handleInstallClick}
+            className="category-item"
+            style={{ 
+              width: "100%", 
+              textAlign: "left",
+              backgroundColor: "var(--bg-tertiary)",
+              color: "var(--text-primary)",
+              fontWeight: 600,
+              borderRadius: "var(--radius-md)",
+              border: "1px solid var(--border-color)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "0.6rem 0.75rem",
+              cursor: "pointer",
+              transition: "all var(--transition-fast)"
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "var(--accent-light)";
+              e.currentTarget.style.color = "var(--accent)";
+              e.currentTarget.style.borderColor = "var(--accent)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "var(--bg-tertiary)";
+              e.currentTarget.style.color = "var(--text-primary)";
+              e.currentTarget.style.borderColor = "var(--border-color)";
+            }}
+          >
+            <span style={{ display: "flex", alignItems: "center" }}>
+              <Download size={16} style={{ marginRight: "0.75rem" }} />
+              Instalar Aplicativo
+            </span>
+            <ChevronRight size={14} />
+          </button>
+        )}
       </div>
 
       {/* Perfil de Usuário / Logout */}
