@@ -16,14 +16,14 @@ export const getFirebaseConfig = () => {
     console.error("Erro ao ler configuração do Firebase do localStorage:", e);
   }
 
-  // 2. Fallback para variáveis de ambiente (.env)
+  // 2. Fallback para variáveis de ambiente (.env) ou credenciais padrão do usuário
   const envConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID,
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBwVq7nTXf_qNO6Q4LyS-H2z39XbxOu6s8",
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "links-eullon.firebaseapp.com",
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "links-eullon",
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "links-eullon.firebasestorage.app",
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "575042633707",
+    appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:575042633707:web:f1d32c9092e962a68263ae",
   };
 
   // Garante que não está com o valor padrão do .env.example
