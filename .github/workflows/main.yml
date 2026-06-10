@@ -39,6 +39,12 @@ jobs:
       - name: Compilar projeto (Vite Build)
         run: npm run build
 
+      - name: Compactar Extensão para Download
+        run: |
+          cd dist
+          zip -r eullon-links-extension.zip . -x "eullon-links-extension.zip"
+          cd ..
+
       - name: Configurar Pages
         uses: actions/configure-pages@v4
 

@@ -11,7 +11,8 @@ import {
   LogOut,
   ChevronRight,
   TrendingUp,
-  FolderOpen
+  FolderOpen,
+  Puzzle
 } from "lucide-react";
 import { CategoryIcon } from "./CategoryManagerModal";
 
@@ -22,6 +23,7 @@ export default function Sidebar({
   onSelectPriority, 
   onOpenCategories, 
   onOpenSettings,
+  onOpenExtension,
   isOpenMobile,
   onCloseMobile
 }) {
@@ -50,6 +52,11 @@ export default function Sidebar({
 
   const handlePriorityClick = (prio) => {
     onSelectPriority(prio);
+    if (onCloseMobile) onCloseMobile();
+  };
+
+  const handleExtensionClick = () => {
+    if (onOpenExtension) onOpenExtension();
     if (onCloseMobile) onCloseMobile();
   };
 
@@ -232,6 +239,43 @@ export default function Sidebar({
             </span>
           </button>
         </div>
+      </div>
+
+      {/* Extensão do Navegador */}
+      <div style={{ marginBottom: "1.25rem", borderTop: "1px solid var(--border-color)", paddingTop: "1.25rem" }}>
+        <button
+          onClick={handleExtensionClick}
+          className="category-item"
+          style={{ 
+            width: "100%", 
+            textAlign: "left",
+            backgroundColor: "var(--accent-light)",
+            color: "var(--accent)",
+            fontWeight: 600,
+            borderRadius: "var(--radius-md)",
+            border: "1px solid transparent",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "0.6rem 0.75rem",
+            cursor: "pointer",
+            transition: "all var(--transition-fast)"
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = "var(--accent)";
+            e.currentTarget.style.color = "#ffffff";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = "var(--accent-light)";
+            e.currentTarget.style.color = "var(--accent)";
+          }}
+        >
+          <span style={{ display: "flex", alignItems: "center" }}>
+            <Puzzle size={16} style={{ marginRight: "0.75rem" }} />
+            Extensão do Navegador
+          </span>
+          <ChevronRight size={14} />
+        </button>
       </div>
 
       {/* Perfil de Usuário / Logout */}

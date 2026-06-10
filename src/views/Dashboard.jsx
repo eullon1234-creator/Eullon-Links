@@ -16,6 +16,7 @@ import ThemeToggle from "../components/ThemeToggle";
 import AddEditLinkModal from "../components/AddEditLinkModal";
 import CategoryManagerModal from "../components/CategoryManagerModal";
 import FirebaseSettingsModal from "../components/FirebaseSettingsModal";
+import ExtensionModal from "../components/ExtensionModal";
 
 export default function Dashboard() {
   const { links, categories } = useApp();
@@ -32,6 +33,7 @@ export default function Dashboard() {
   const [linkToEdit, setLinkToEdit] = useState(null);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [extensionOpen, setExtensionOpen] = useState(false);
 
   // Responsividade Mobile
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -135,6 +137,7 @@ export default function Dashboard() {
         onSelectPriority={setSelectedPriority}
         onOpenCategories={() => setCategoriesOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
+        onOpenExtension={() => setExtensionOpen(true)}
         isOpenMobile={mobileSidebarOpen}
         onCloseMobile={() => setMobileSidebarOpen(false)}
       />
@@ -387,6 +390,12 @@ export default function Dashboard() {
       <FirebaseSettingsModal
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
+      />
+
+      {/* MODAL DE DOWNLOAD DA EXTENSÃO */}
+      <ExtensionModal
+        isOpen={extensionOpen}
+        onClose={() => setExtensionOpen(false)}
       />
 
       {/* CSS extra para regras desktop/mobile específicas no layout do Dashboard */}
