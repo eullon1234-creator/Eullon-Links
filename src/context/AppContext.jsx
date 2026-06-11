@@ -281,6 +281,7 @@ export const AppProvider = ({ children }) => {
               photoUrl: link.photoUrl || "",
               categoryId: link.categoryId || "cat-general",
               tags: link.tags || [],
+              isHidden: link.isHidden || false,
               createdAt: link.createdAt || new Date().toISOString(),
               updatedAt: link.updatedAt || new Date().toISOString()
             });
@@ -313,6 +314,7 @@ export const AppProvider = ({ children }) => {
       photoUrl: linkData.photoUrl || "",
       categoryId: linkData.categoryId || "cat-general",
       tags: linkData.tags || [],
+      isHidden: linkData.isHidden || false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };

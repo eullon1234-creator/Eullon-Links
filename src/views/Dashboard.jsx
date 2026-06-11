@@ -9,7 +9,8 @@ import {
   FolderOpen,
   Filter,
   Tag,
-  Download
+  Download,
+  Lock
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import LinkCard from "../components/LinkCard";
@@ -37,6 +38,9 @@ export default function Dashboard() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [extensionOpen, setExtensionOpen] = useState(false);
   const [installOpen, setInstallOpen] = useState(false);
+  const [hiddenUnlocked, setHiddenUnlocked] = useState(false);
+  const [hiddenCodeInput, setHiddenCodeInput] = useState("");
+  const [hiddenModalOpen, setHiddenModalOpen] = useState(false);
 
   // Responsividade Mobile
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -79,6 +83,11 @@ export default function Dashboard() {
       const matchTitle = link.title && link.title.toLowerCase().includes(query);
       const matchTags = link.tags && link.tags.some(tag => tag.toLowerCase().includes(query));
       return matchTitle || matchTags;
+    }
+
+    // 5. Se NÃO estiver desbloqueado, oculta links com isHidden
+    if (link.isHidden && !hiddenUnlocked) {
+      return false;
     }
 
     return true;
@@ -154,6 +163,7 @@ export default function Dashboard() {
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenExtension={() => setExtensionOpen(true)}
         onOpenInstall={() => setInstallOpen(true)}
+        onOpenHiddenLinks={() => setHiddenModalOpen(true)}
         isOpenMobile={mobileSidebarOpen}
         onCloseMobile={() => setMobileSidebarOpen(false)}
       />
@@ -297,7 +307,7 @@ export default function Dashboard() {
         </div>
 
         {/* Exibição de Tags de Filtro Ativos */}
-        {(selectedTag || selectedPriority !== "all" || searchQuery) && (
+        {(selectedTag || selectedPriority !== "all" || searchQuery || hiddenUnlocked) && (
           <div style={{ 
             display: "flex", 
             flexWrap: "wrap", 
@@ -349,6 +359,12 @@ export default function Dashboard() {
             >
               Limpar Todos
             </button>
+            {hiddenUnlocked && (
+              <span className="tag-token" style={{ padding: "0.15rem 0.5rem", fontSize: "0.75rem", backgroundColor: "var(--warning-light)", color: "var(--warning)" }}>
+                <Lock size={12} /> Links Ocultos Visíveis
+                <span onClick={() => { setHiddenUnlocked(false); setHiddenCodeInput(""); }} className="tag-token-close"><X size={12} /></span>
+              </span>
+            )}
           </div>
         )}
 
@@ -385,6 +401,67 @@ export default function Dashboard() {
         )}
 
       </main>
+
+      {/* MODAL DE DESBLOQUEIO DE LINKS OCULTOS */}
+      {hiddenModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content animate-scale-up" style={{ maxWidth: "400px" }}>
+            <div className="modal-header">
+              <h2 style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "1.25rem" }}>
+                <Lock size={22} style={{ color: "var(--accent)" }} />
+                Links Ocultos
+              </h2>
+            </div>
+            <div className="modal-body" style={{ textAlign: "center" }}>
+              <p style={{ color: "var(--text-secondary)", marginBottom: "1.5rem", fontSize: "0.9rem" }}>
+                Digite o código de desbloqueio para revelar os links ocultos.
+              </p>
+              <input
+                type="password"
+                value={hiddenCodeInput}
+                onChange={(e) => setHiddenCodeInput(e.target.value)}
+                className="form-input"
+                placeholder="Digite o código..."
+                style={{ textAlign: "center", fontSize: "1.2rem", letterSpacing: "0.3em", marginBottom: "1rem" }}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    if (hiddenCodeInput === "019273") {
+                      setHiddenUnlocked(true);
+                      setHiddenCodeInput("");
+                      setHiddenModalOpen(false);
+                    }
+                  }
+                }}
+              />
+              {hiddenCodeInput && hiddenCodeInput !== "019273" && (
+                <div style={{ color: "var(--danger)", fontSize: "0.85rem", marginBottom: "0.5rem" }}>
+                  Código inválido. Tente novamente.
+                </div>
+              )}
+              <button
+                className="btn btn-primary"
+                style={{ width: "100%" }}
+                onClick={() => {
+                  if (hiddenCodeInput === "019273") {
+                    setHiddenUnlocked(true);
+                    setHiddenCodeInput("");
+                    setHiddenModalOpen(false);
+                  }
+                }}
+              >
+                <Lock size={16} />
+                Desbloquear
+              </button>
+            </div>
+            <div className="modal-footer" style={{ justifyContent: "center" }}>
+              <button className="btn btn-secondary" onClick={() => { setHiddenModalOpen(false); setHiddenCodeInput(""); }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL DE ADICIONAR / EDITAR FAVORITO */}
       <AddEditLinkModal

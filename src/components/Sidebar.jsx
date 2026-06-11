@@ -13,7 +13,8 @@ import {
   TrendingUp,
   FolderOpen,
   Puzzle,
-  Download
+  Download,
+  Lock
 } from "lucide-react";
 import { CategoryIcon } from "./CategoryManagerModal";
 
@@ -26,6 +27,7 @@ export default function Sidebar({
   onOpenSettings,
   onOpenExtension,
   onOpenInstall,
+  onOpenHiddenLinks,
   isOpenMobile,
   onCloseMobile
 }) {
@@ -40,12 +42,12 @@ export default function Sidebar({
 
   // Função para contar links em uma categoria
   const getLinkCountForCategory = (catId) => {
-    return links.filter(lnk => lnk.categoryId === catId).length;
+    return links.filter(lnk => lnk.categoryId === catId && !lnk.isHidden).length;
   };
 
   // Função para contar links por prioridade
   const getLinkCountForPriority = (priority) => {
-    return links.filter(lnk => lnk.priority === priority).length;
+    return links.filter(lnk => lnk.priority === priority && !lnk.isHidden).length;
   };
 
   const handleCategoryClick = (catId) => {
@@ -127,7 +129,7 @@ export default function Sidebar({
             Todos os Favoritos
           </span>
           <span style={{ fontSize: "0.8rem", backgroundColor: "var(--bg-tertiary)", padding: "0.1rem 0.4rem", borderRadius: "var(--radius-sm)" }}>
-            {links.length}
+            {links.filter(lnk => !lnk.isHidden).length}
           </span>
         </button>
       </div>
@@ -247,6 +249,35 @@ export default function Sidebar({
             </span>
           </button>
         </div>
+      </div>
+
+      {/* Links Ocultos */}
+      <div style={{ marginBottom: "1.5rem", borderTop: "1px solid var(--border-color)", paddingTop: "1.25rem" }}>
+        <button
+          onClick={() => {
+            if (onOpenHiddenLinks) onOpenHiddenLinks();
+            if (onCloseMobile) onCloseMobile();
+          }}
+          className="category-item"
+          style={{
+            width: "100%",
+            textAlign: "left",
+            backgroundColor: "var(--bg-tertiary)",
+            borderRadius: "var(--radius-md)",
+            border: "1px solid var(--border-color)",
+            padding: "0.6rem 0.75rem",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between"
+          }}
+        >
+          <span style={{ display: "flex", alignItems: "center" }}>
+            <Lock size={16} style={{ marginRight: "0.75rem", color: "var(--warning)" }} />
+            <span style={{ fontWeight: 600 }}>Links Ocultos</span>
+          </span>
+          <ChevronRight size={14} style={{ color: "var(--text-tertiary)" }} />
+        </button>
       </div>
 
       {/* Extensão e Instalação */}

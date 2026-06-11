@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
-import { X, Bookmark, Plus, Tag, HelpCircle, Image as ImageIcon } from "lucide-react";
+import { X, Bookmark, Plus, Tag, HelpCircle, Image as ImageIcon, Lock } from "lucide-react";
 
 export default function AddEditLinkModal({ isOpen, onClose, linkToEdit = null }) {
   const { categories, addLink, updateLink } = useApp();
@@ -17,6 +17,8 @@ export default function AddEditLinkModal({ isOpen, onClose, linkToEdit = null })
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState("");
 
+  const [isHidden, setIsHidden] = useState(false);
+
   const [error, setError] = useState("");
   const [fetchingMetadata, setFetchingMetadata] = useState(false);
 
@@ -31,6 +33,7 @@ export default function AddEditLinkModal({ isOpen, onClose, linkToEdit = null })
       setPriority(linkToEdit.priority || "low");
       setObservation(linkToEdit.observation || "");
       setTags(linkToEdit.tags || []);
+      setIsHidden(linkToEdit.isHidden || false);
     } else {
       // Limpar formulário para inserção
       setTitle("");
@@ -41,6 +44,7 @@ export default function AddEditLinkModal({ isOpen, onClose, linkToEdit = null })
       setPriority("low");
       setObservation("");
       setTags([]);
+      setIsHidden(false);
     }
     setError("");
   }, [linkToEdit, isOpen]);
@@ -187,7 +191,8 @@ export default function AddEditLinkModal({ isOpen, onClose, linkToEdit = null })
       notes: notes.trim(),
       priority,
       observation: observation.trim(),
-      tags
+      tags,
+      isHidden
     };
 
     try {
@@ -393,6 +398,20 @@ export default function AddEditLinkModal({ isOpen, onClose, linkToEdit = null })
                   placeholder={tags.length === 0 ? "Ex: javascript, design, estudos" : ""}
                 />
               </div>
+            </div>
+
+            {/* Link Oculto */}
+            <div className="form-group" style={{ marginBottom: "1rem" }}>
+              <label className="form-label" style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={isHidden}
+                  onChange={(e) => setIsHidden(e.target.checked)}
+                  style={{ width: "18px", height: "18px", accentColor: "var(--accent)", cursor: "pointer" }}
+                />
+                <span style={{ fontSize: "0.875rem" }}>Link Oculto (só aparece após desbloqueio com código)</span>
+                <Lock size={14} style={{ color: isHidden ? "var(--accent)" : "var(--text-tertiary)", marginLeft: "0.25rem" }} />
+              </label>
             </div>
 
             {/* Notas Personalizadas */}

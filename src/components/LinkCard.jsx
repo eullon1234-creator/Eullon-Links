@@ -7,7 +7,8 @@ import {
   Calendar, 
   Tag, 
   MessageSquare,
-  AlertCircle
+  AlertCircle,
+  Lock
 } from "lucide-react";
 import { CategoryIcon } from "./CategoryManagerModal";
 
@@ -186,6 +187,18 @@ export default function LinkCard({ link, onEdit, onSelectTag }) {
         </div>
 
       </div>
+
+      {link.isHidden && (
+        <span style={{
+          position: "absolute",
+          bottom: "0.5rem",
+          right: "0.5rem",
+          color: "var(--warning)",
+          opacity: 0.6
+        }}>
+          <Lock size={14} />
+        </span>
+      )}
 
     </div>
   );
