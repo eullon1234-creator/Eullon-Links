@@ -542,20 +542,36 @@ export const AppProvider = ({ children }) => {
 
   // --- BUSCA AUTOMÁTICA DE METADADOS (Open Graph) ---
   const fetchUrlMetadata = async (targetUrl) => {
-    try {
-      let formattedUrl = targetUrl.trim();
-      if (!/^https?:\/\//i.test(formattedUrl)) {
-        formattedUrl = "https://" + formattedUrl;
-      }
+    if (!targetUrl || typeof targetUrl !== "string") return null;
 
+    let formattedUrl = targetUrl.trim();
+    if (!formattedUrl || formattedUrl.length < 3) return null;
+
+    // Se não tiver protocolo, adiciona https://
+    if (!/^https?:\/\//i.test(formattedUrl)) {
+      formattedUrl = "https://" + formattedUrl;
+    }
+
+    // Validação de formato de URL básico para evitar chamadas de API inválidas
+    let hostname = "";
+    try {
+      const urlObj = new URL(formattedUrl);
+      hostname = urlObj.hostname.replace("www.", "");
+      if (!hostname || !hostname.includes(".")) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+
+    try {
       const apiUrl = `https://api.microlink.io?url=${encodeURIComponent(formattedUrl)}&meta=true`;
       const response = await fetch(apiUrl);
-      if (!response.ok) throw new Error("Falha ao consultar metadados");
+      if (!response.ok) throw new Error(`Status ${response.status}`);
       
       const data = await response.json();
       if (data.status === "success" && data.data) {
         const d = data.data;
-        const hostname = new URL(formattedUrl).hostname.replace("www.", "");
         
         return {
           title: d.title || hostname,
@@ -567,19 +583,14 @@ export const AppProvider = ({ children }) => {
       }
       throw new Error("Metadados não encontrados");
     } catch (e) {
-      console.warn("Metadados automáticos falharam, usando fallback do domínio:", e);
-      try {
-        const hostname = new URL(targetUrl.startsWith("http") ? targetUrl : `https://${targetUrl}`).hostname.replace("www.", "");
-        return {
-          title: hostname,
-          description: "",
-          image: `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`,
-          logo: `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`,
-          publisher: hostname
-        };
-      } catch {
-        return null;
-      }
+      // Fallback seguro usando o favicon do Google sem quebrar
+      return {
+        title: hostname,
+        description: "",
+        image: `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`,
+        logo: `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`,
+        publisher: hostname
+      };
     }
   };
 
@@ -588,7 +599,12 @@ export const AppProvider = ({ children }) => {
     const results = [];
     for (const link of linksToCheck) {
       try {
-        const res = await fetch(`https://api.microlink.io?url=${encodeURIComponent(link.url)}`, { method: "HEAD" });
+        let testUrl = link.url;
+        if (!/^https?:\/\//i.test(testUrl)) {
+          testUrl = "https://" + testUrl;
+        }
+
+        const res = await fetch(`https://api.microlink.io?url=${encodeURIComponent(testUrl)}&meta=false`);
         results.push({
           id: link.id,
           title: link.title,
@@ -601,7 +617,7 @@ export const AppProvider = ({ children }) => {
           id: link.id,
           title: link.title,
           url: link.url,
-          status: "online", // Fallback CORS
+          status: "online",
           statusCode: 200
         });
       }

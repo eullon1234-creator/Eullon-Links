@@ -159,7 +159,8 @@ export default function AddEditLinkModal({ isOpen, onClose, linkToEdit = null })
   };
 
   const handleUrlBlur = () => {
-    if (!title.trim() && url.trim()) {
+    const trimmed = url.trim();
+    if (!title.trim() && trimmed && trimmed.includes(".") && trimmed.length >= 4) {
       handleFetchMetadata();
     }
   };
