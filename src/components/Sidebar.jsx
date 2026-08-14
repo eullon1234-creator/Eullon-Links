@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useApp } from "../context/AppContext";
 import { 
   Folder, 
@@ -15,7 +15,15 @@ import {
   Puzzle, 
   Download, 
   Lock,
-  Layers
+  Layers,
+  Flame,
+  Clock,
+  Briefcase,
+  Globe,
+  Home,
+  GraduationCap,
+  Code,
+  Activity
 } from "lucide-react";
 import { CategoryIcon } from "./CategoryManagerModal";
 
@@ -23,13 +31,16 @@ export default function Sidebar({
   selectedCategoryId, 
   onSelectCategory, 
   selectedPriority, 
-  onSelectPriority, 
+  onSelectPriority,
+  selectedSpecialFilter, // "all" | "most-visited" | "read-later"
+  onSelectSpecialFilter,
   onOpenCategories, 
   onOpenSettings,
   onOpenExtension,
   onOpenInstall,
   onOpenHiddenLinks,
   onOpenBackup,
+  onOpenHealthCheck,
   isOpenMobile,
   onCloseMobile
 }) {
@@ -38,22 +49,36 @@ export default function Sidebar({
     firebaseConfigured, 
     categories, 
     links, 
+    workspaces,
+    currentWorkspace,
+    selectWorkspace,
     logoutUser,
-    isInstalled
+    isInstalled,
+    moveLinkToCategory
   } = useApp();
 
-  // Função para contar links em uma categoria
+  const [dragOverCatId, setDragOverCatId] = useState(null);
+
+  // Filtra links pelo workspace selecionado para as contagens
+  const workspaceLinks = links.filter(lnk => {
+    if (currentWorkspace === "all") return true;
+    return (lnk.workspaceId || "ws-pessoal") === currentWorkspace;
+  });
+
   const getLinkCountForCategory = (catId) => {
-    return links.filter(lnk => lnk.categoryId === catId && !lnk.isHidden).length;
+    return workspaceLinks.filter(lnk => lnk.categoryId === catId && !lnk.isHidden).length;
   };
 
-  // Função para contar links por prioridade
   const getLinkCountForPriority = (priority) => {
-    return links.filter(lnk => lnk.priority === priority && !lnk.isHidden).length;
+    return workspaceLinks.filter(lnk => lnk.priority === priority && !lnk.isHidden).length;
   };
+
+  const readLaterCount = workspaceLinks.filter(lnk => lnk.isReadLater && !lnk.isHidden).length;
+  const mostVisitedCount = workspaceLinks.filter(lnk => (lnk.clickCount || 0) > 0 && !lnk.isHidden).length;
 
   const handleCategoryClick = (catId) => {
     onSelectCategory(catId);
+    if (onSelectSpecialFilter) onSelectSpecialFilter("all");
     if (onCloseMobile) onCloseMobile();
   };
 
@@ -62,26 +87,35 @@ export default function Sidebar({
     if (onCloseMobile) onCloseMobile();
   };
 
-  const handleExtensionClick = () => {
-    if (onOpenExtension) onOpenExtension();
+  const handleSpecialFilterClick = (filter) => {
+    if (onSelectSpecialFilter) onSelectSpecialFilter(filter);
     if (onCloseMobile) onCloseMobile();
   };
 
-  const handleInstallClick = () => {
-    if (onOpenInstall) onOpenInstall();
-    if (onCloseMobile) onCloseMobile();
+  // Drag & Drop Handlers para Categorias
+  const handleDragOverCategory = (e, catId) => {
+    e.preventDefault();
+    setDragOverCatId(catId);
   };
 
-  const handleBackupClick = () => {
-    if (onOpenBackup) onOpenBackup();
-    if (onCloseMobile) onCloseMobile();
+  const handleDragLeaveCategory = () => {
+    setDragOverCatId(null);
+  };
+
+  const handleDropCategory = async (e, targetCatId) => {
+    e.preventDefault();
+    setDragOverCatId(null);
+    const linkId = e.dataTransfer.getData("text/plain");
+    if (linkId) {
+      await moveLinkToCategory(linkId, targetCatId);
+    }
   };
 
   return (
     <aside className={`sidebar ${isOpenMobile ? "open" : ""}`} style={{ zIndex: 99 }}>
       
       {/* Header Logo */}
-      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.5rem" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.25rem" }}>
         <div style={{
           backgroundColor: "var(--accent-light)",
           color: "var(--accent)",
@@ -100,8 +134,35 @@ export default function Sidebar({
         </div>
       </div>
 
+      {/* Seletor de Espaço de Trabalho (Workspace) */}
+      <div style={{ marginBottom: "1.25rem" }}>
+        <div style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", color: "var(--text-tertiary)", letterSpacing: "0.05em", marginBottom: "0.4rem", padding: "0 0.25rem" }}>
+          Espaço de Trabalho
+        </div>
+        <select
+          value={currentWorkspace}
+          onChange={(e) => selectWorkspace(e.target.value)}
+          className="form-input"
+          style={{
+            height: "40px",
+            fontSize: "0.85rem",
+            fontWeight: 600,
+            cursor: "pointer",
+            backgroundColor: "var(--bg-tertiary)",
+            borderColor: "var(--border-color)",
+            paddingLeft: "0.75rem"
+          }}
+        >
+          {workspaces.map(ws => (
+            <option key={ws.id} value={ws.id}>
+              {ws.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {/* Status da Sincronização */}
-      <div style={{ marginBottom: "1.5rem" }}>
+      <div style={{ marginBottom: "1.25rem" }}>
         {firebaseConfigured && currentUser ? (
           <div 
             onClick={onOpenSettings}
@@ -125,11 +186,11 @@ export default function Sidebar({
         )}
       </div>
 
-      {/* Filtro Todos os Links */}
-      <div style={{ marginBottom: "1.5rem" }}>
+      {/* Filtros Principais & Especiais */}
+      <div style={{ marginBottom: "1.25rem", display: "flex", flexDirection: "column", gap: "0.2rem" }}>
         <button
           onClick={() => handleCategoryClick("all")}
-          className={`category-item ${selectedCategoryId === "all" ? "active" : ""}`}
+          className={`category-item ${selectedCategoryId === "all" && selectedSpecialFilter === "all" ? "active" : ""}`}
           style={{ width: "100%", textAlign: "left" }}
         >
           <span style={{ display: "flex", alignItems: "center" }}>
@@ -137,22 +198,52 @@ export default function Sidebar({
             Todos os Favoritos
           </span>
           <span style={{ fontSize: "0.8rem", backgroundColor: "var(--bg-tertiary)", padding: "0.1rem 0.4rem", borderRadius: "var(--radius-sm)" }}>
-            {links.filter(lnk => !lnk.isHidden).length}
+            {workspaceLinks.filter(lnk => !lnk.isHidden).length}
+          </span>
+        </button>
+
+        {/* Mais Acessados */}
+        <button
+          onClick={() => handleSpecialFilterClick("most-visited")}
+          className={`category-item ${selectedSpecialFilter === "most-visited" ? "active" : ""}`}
+          style={{ width: "100%", textAlign: "left" }}
+        >
+          <span style={{ display: "flex", alignItems: "center" }}>
+            <Flame size={18} style={{ marginRight: "0.75rem", color: "var(--warning)" }} />
+            Mais Acessados
+          </span>
+          <span style={{ fontSize: "0.8rem", color: "var(--text-tertiary)" }}>
+            {mostVisitedCount}
+          </span>
+        </button>
+
+        {/* Ler Mais Tarde */}
+        <button
+          onClick={() => handleSpecialFilterClick("read-later")}
+          className={`category-item ${selectedSpecialFilter === "read-later" ? "active" : ""}`}
+          style={{ width: "100%", textAlign: "left" }}
+        >
+          <span style={{ display: "flex", alignItems: "center" }}>
+            <Clock size={18} style={{ marginRight: "0.75rem", color: "var(--accent)" }} />
+            Ler Mais Tarde
+          </span>
+          <span style={{ fontSize: "0.8rem", color: "var(--text-tertiary)" }}>
+            {readLaterCount}
           </span>
         </button>
       </div>
 
-      {/* Lista de Categorias */}
-      <div style={{ marginBottom: "1.5rem", flex: 1, overflowY: "auto", minHeight: "150px" }}>
+      {/* Lista de Categorias (com suporte a Drop Target) */}
+      <div style={{ marginBottom: "1.25rem", flex: 1, overflowY: "auto", minHeight: "150px" }}>
         <div style={{ 
           display: "flex", 
           alignItems: "center", 
           justifyContent: "space-between", 
-          marginBottom: "0.75rem",
+          marginBottom: "0.5rem",
           padding: "0 0.5rem"
         }}>
           <span style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", color: "var(--text-tertiary)", letterSpacing: "0.05em" }}>
-            Categorias
+            Categorias (Arraste aqui)
           </span>
           <button 
             onClick={onOpenCategories}
@@ -169,7 +260,10 @@ export default function Sidebar({
             <button
               key={cat.id}
               onClick={() => handleCategoryClick(cat.id)}
-              className={`category-item ${selectedCategoryId === cat.id ? "active" : ""}`}
+              onDragOver={(e) => handleDragOverCategory(e, cat.id)}
+              onDragLeave={handleDragLeaveCategory}
+              onDrop={(e) => handleDropCategory(e, cat.id)}
+              className={`category-item ${selectedCategoryId === cat.id && selectedSpecialFilter === "all" ? "active" : ""} ${dragOverCatId === cat.id ? "drop-target-active" : ""}`}
               style={{ width: "100%", textAlign: "left" }}
             >
               <span style={{ display: "flex", alignItems: "center", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
@@ -189,7 +283,7 @@ export default function Sidebar({
       </div>
 
       {/* Filtros de Prioridade */}
-      <div style={{ marginBottom: "1.5rem", borderTop: "1px solid var(--border-color)", paddingTop: "1.25rem" }}>
+      <div style={{ marginBottom: "1.25rem", borderTop: "1px solid var(--border-color)", paddingTop: "1rem" }}>
         <span style={{ 
           display: "block",
           fontSize: "0.75rem", 
@@ -197,7 +291,7 @@ export default function Sidebar({
           textTransform: "uppercase", 
           color: "var(--text-tertiary)", 
           letterSpacing: "0.05em",
-          marginBottom: "0.75rem",
+          marginBottom: "0.5rem",
           padding: "0 0.5rem"
         }}>
           Prioridades
@@ -259,12 +353,15 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* Links Ocultos & Backup */}
-      <div style={{ marginBottom: "1.25rem", borderTop: "1px solid var(--border-color)", paddingTop: "1.25rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+      {/* Ferramentas Extras: Health Check & Backup & Links Ocultos */}
+      <div style={{ marginBottom: "1.25rem", borderTop: "1px solid var(--border-color)", paddingTop: "1rem", display: "flex", flexDirection: "column", gap: "0.4rem" }}>
         
-        {/* Backup & Importar */}
+        {/* Verificador de Saúde */}
         <button
-          onClick={handleBackupClick}
+          onClick={() => {
+            if (onOpenHealthCheck) onOpenHealthCheck();
+            if (onCloseMobile) onCloseMobile();
+          }}
           className="category-item"
           style={{
             width: "100%",
@@ -272,7 +369,34 @@ export default function Sidebar({
             backgroundColor: "var(--bg-tertiary)",
             borderRadius: "var(--radius-md)",
             border: "1px solid var(--border-color)",
-            padding: "0.6rem 0.75rem",
+            padding: "0.55rem 0.75rem",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between"
+          }}
+        >
+          <span style={{ display: "flex", alignItems: "center" }}>
+            <Activity size={16} style={{ marginRight: "0.75rem", color: "var(--success)" }} />
+            <span style={{ fontWeight: 600 }}>Verificar Links</span>
+          </span>
+          <ChevronRight size={14} style={{ color: "var(--text-tertiary)" }} />
+        </button>
+
+        {/* Backup & Importar */}
+        <button
+          onClick={() => {
+            if (onOpenBackup) onOpenBackup();
+            if (onCloseMobile) onCloseMobile();
+          }}
+          className="category-item"
+          style={{
+            width: "100%",
+            textAlign: "left",
+            backgroundColor: "var(--bg-tertiary)",
+            borderRadius: "var(--radius-md)",
+            border: "1px solid var(--border-color)",
+            padding: "0.55rem 0.75rem",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -299,7 +423,7 @@ export default function Sidebar({
             backgroundColor: "var(--bg-tertiary)",
             borderRadius: "var(--radius-md)",
             border: "1px solid var(--border-color)",
-            padding: "0.6rem 0.75rem",
+            padding: "0.55rem 0.75rem",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -315,9 +439,12 @@ export default function Sidebar({
       </div>
 
       {/* Extensão e Instalação */}
-      <div style={{ marginBottom: "1.25rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+      <div style={{ marginBottom: "1rem", display: "flex", flexDirection: "column", gap: "0.4rem" }}>
         <button
-          onClick={handleExtensionClick}
+          onClick={() => {
+            if (onOpenExtension) onOpenExtension();
+            if (onCloseMobile) onCloseMobile();
+          }}
           className="category-item"
           style={{ 
             width: "100%", 
@@ -330,7 +457,7 @@ export default function Sidebar({
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            padding: "0.6rem 0.75rem",
+            padding: "0.55rem 0.75rem",
             cursor: "pointer",
             transition: "all var(--transition-fast)"
           }}
@@ -344,7 +471,10 @@ export default function Sidebar({
 
         {!isInstalled && (
           <button
-            onClick={handleInstallClick}
+            onClick={() => {
+              if (onOpenInstall) onOpenInstall();
+              if (onCloseMobile) onCloseMobile();
+            }}
             className="category-item"
             style={{ 
               width: "100%", 
@@ -357,7 +487,7 @@ export default function Sidebar({
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              padding: "0.6rem 0.75rem",
+              padding: "0.55rem 0.75rem",
               cursor: "pointer",
               transition: "all var(--transition-fast)"
             }}

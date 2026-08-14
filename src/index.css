@@ -1145,3 +1145,34 @@ textarea.form-input {
   color: var(--accent);
 }
 
+/* ==========================================================================
+   DRAG & DROP STYLES & ANIMATIONS
+   ========================================================================== */
+.link-card.dragging,
+.link-list-row.dragging {
+  opacity: 0.45;
+  transform: scale(0.97);
+  border: 2px dashed var(--accent) !important;
+}
+
+.category-item.drop-target-active {
+  background-color: var(--accent-light) !important;
+  border-color: var(--accent) !important;
+  transform: scale(1.03);
+  box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.35);
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+

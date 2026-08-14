@@ -16,9 +16,10 @@ import {
   Sparkles,
   Cloud,
   Layers,
-  TrendingUp,
-  AlertCircle,
-  Smartphone
+  Flame,
+  Clock,
+  Briefcase,
+  Activity
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import LinkCard from "../components/LinkCard";
@@ -30,23 +31,29 @@ import ExtensionModal from "../components/ExtensionModal";
 import InstallAppModal from "../components/InstallAppModal";
 import BackupModal from "../components/BackupModal";
 import QrCodeModal from "../components/QrCodeModal";
+import HealthCheckModal from "../components/HealthCheckModal";
 
 export default function Dashboard() {
   const { 
     links, 
     categories, 
+    workspaces,
+    currentWorkspace,
+    selectWorkspace,
     isInstalled, 
     isInstallable, 
     isIOS,
     viewMode,
     toggleViewMode,
     currentUser,
-    loadSampleLinks
+    loadSampleLinks,
+    reorderLinks
   } = useApp();
 
   // Estados dos filtros
   const [selectedCategoryId, setSelectedCategoryId] = useState("all");
   const [selectedPriority, setSelectedPriority] = useState("all");
+  const [selectedSpecialFilter, setSelectedSpecialFilter] = useState("all"); // "all" | "most-visited" | "read-later"
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
@@ -59,8 +66,12 @@ export default function Dashboard() {
   const [extensionOpen, setExtensionOpen] = useState(false);
   const [installOpen, setInstallOpen] = useState(false);
   const [backupOpen, setBackupOpen] = useState(false);
+  const [healthCheckOpen, setHealthCheckOpen] = useState(false);
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [linkForQr, setLinkForQr] = useState(null);
+
+  // Drag and Drop reordering state
+  const [draggedLinkId, setDraggedLinkId] = useState(null);
 
   // Links Ocultos
   const [hiddenUnlocked, setHiddenUnlocked] = useState(false);
@@ -70,9 +81,14 @@ export default function Dashboard() {
   // Responsividade Mobile
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
+  // Workspace ativo
+  const activeWorkspaceObj = workspaces.find(w => w.id === currentWorkspace) || workspaces[0];
+
   // Encontrar nome da categoria selecionada
   const activeCategory = categories.find(cat => cat.id === selectedCategoryId);
-  const categoryTitle = selectedCategoryId === "all" ? "Todos os Favoritos" : (activeCategory?.name || "Categoria");
+  let mainTitle = selectedCategoryId === "all" ? "Todos os Favoritos" : (activeCategory?.name || "Categoria");
+  if (selectedSpecialFilter === "most-visited") mainTitle = "Mais Acessados 🔥";
+  if (selectedSpecialFilter === "read-later") mainTitle = "Ler Mais Tarde ⏱️";
 
   // Ações de Links
   const handleOpenAddModal = () => {
@@ -91,23 +107,37 @@ export default function Dashboard() {
   };
 
   // Filtragem Inteligente dos Links
-  const filteredLinks = links.filter(link => {
-    // 1. Filtrar por Categoria
+  let filteredLinks = links.filter(link => {
+    // 0. Filtrar por Workspace
+    if (currentWorkspace !== "all") {
+      const linkWs = link.workspaceId || "ws-pessoal";
+      if (linkWs !== currentWorkspace) return false;
+    }
+
+    // 1. Filtrar por Filtros Especiais
+    if (selectedSpecialFilter === "read-later" && !link.isReadLater) {
+      return false;
+    }
+    if (selectedSpecialFilter === "most-visited" && (!link.clickCount || link.clickCount <= 0)) {
+      return false;
+    }
+
+    // 2. Filtrar por Categoria
     if (selectedCategoryId !== "all" && link.categoryId !== selectedCategoryId) {
       return false;
     }
 
-    // 2. Filtrar por Prioridade
+    // 3. Filtrar por Prioridade
     if (selectedPriority !== "all" && link.priority !== selectedPriority) {
       return false;
     }
 
-    // 3. Filtrar por Tag selecionada via click de card
+    // 4. Filtrar por Tag selecionada via click de card
     if (selectedTag && (!link.tags || !link.tags.includes(selectedTag))) {
       return false;
     }
 
-    // 4. Filtrar por Busca Textual (Título ou Tags)
+    // 5. Filtrar por Busca Textual (Título ou Tags)
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
       const matchTitle = link.title && link.title.toLowerCase().includes(query);
@@ -115,13 +145,18 @@ export default function Dashboard() {
       return matchTitle || matchTags;
     }
 
-    // 5. Se NÃO estiver desbloqueado, oculta links com isHidden
+    // 6. Se NÃO estiver desbloqueado, oculta links com isHidden
     if (link.isHidden && !hiddenUnlocked) {
       return false;
     }
 
     return true;
   });
+
+  // Ordenação por Mais Acessados se filtro estiver ativo
+  if (selectedSpecialFilter === "most-visited") {
+    filteredLinks = [...filteredLinks].sort((a, b) => (b.clickCount || 0) - (a.clickCount || 0));
+  }
 
   const clearTagFilter = () => {
     setSelectedTag("");
@@ -151,9 +186,39 @@ export default function Dashboard() {
     setSearchFocused(false);
   };
 
+  // Drag & Drop reorder
+  const handleDragStart = (e, link) => {
+    setDraggedLinkId(link.id);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  const handleDropOnCard = (e, targetLink) => {
+    e.preventDefault();
+    if (!draggedLinkId || draggedLinkId === targetLink.id) return;
+
+    const sourceIndex = links.findIndex(l => l.id === draggedLinkId);
+    const targetIndex = links.findIndex(l => l.id === targetLink.id);
+
+    if (sourceIndex !== -1 && targetIndex !== -1) {
+      const newLinks = [...links];
+      const [removed] = newLinks.splice(sourceIndex, 1);
+      newLinks.splice(targetIndex, 0, removed);
+      reorderLinks(newLinks);
+    }
+    setDraggedLinkId(null);
+  };
+
   // Contadores para os Cards de Estatísticas
-  const totalLinksCount = links.filter(l => !l.isHidden).length;
-  const highPriorityCount = links.filter(l => l.priority === "high" && !l.isHidden).length;
+  const currentWsLinks = links.filter(l => {
+    if (currentWorkspace !== "all" && (l.workspaceId || "ws-pessoal") !== currentWorkspace) return false;
+    return !l.isHidden;
+  });
+  const totalLinksCount = currentWsLinks.length;
+  const highPriorityCount = currentWsLinks.filter(l => l.priority === "high").length;
+  const readLaterCount = currentWsLinks.filter(l => l.isReadLater).length;
 
   return (
     <div className="app-container">
@@ -190,15 +255,21 @@ export default function Dashboard() {
       {/* PAINEL LATERAL (SIDEBAR) */}
       <Sidebar
         selectedCategoryId={selectedCategoryId}
-        onSelectCategory={setSelectedCategoryId}
+        onSelectCategory={(catId) => {
+          setSelectedCategoryId(catId);
+          setSelectedSpecialFilter("all");
+        }}
         selectedPriority={selectedPriority}
         onSelectPriority={setSelectedPriority}
+        selectedSpecialFilter={selectedSpecialFilter}
+        onSelectSpecialFilter={setSelectedSpecialFilter}
         onOpenCategories={() => setCategoriesOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenExtension={() => setExtensionOpen(true)}
         onOpenInstall={() => setInstallOpen(true)}
         onOpenHiddenLinks={() => setHiddenModalOpen(true)}
         onOpenBackup={() => setBackupOpen(true)}
+        onOpenHealthCheck={() => setHealthCheckOpen(true)}
         isOpenMobile={mobileSidebarOpen}
         onCloseMobile={() => setMobileSidebarOpen(false)}
       />
@@ -214,23 +285,23 @@ export default function Dashboard() {
             </div>
             <div>
               <div className="stat-value">{totalLinksCount}</div>
-              <div className="stat-label">Total de Links</div>
+              <div className="stat-label">Total no Espaço</div>
             </div>
           </div>
 
           <div className="stat-card">
-            <div className="stat-icon" style={{ backgroundColor: "rgba(16, 185, 129, 0.15)", color: "var(--success)" }}>
-              <Layers size={18} />
+            <div className="stat-icon" style={{ backgroundColor: "rgba(245, 158, 11, 0.15)", color: "var(--warning)" }}>
+              <Flame size={18} />
             </div>
             <div>
-              <div className="stat-value">{categories.length}</div>
-              <div className="stat-label">Categorias</div>
+              <div className="stat-value">{currentWsLinks.reduce((acc, l) => acc + (l.clickCount || 0), 0)}</div>
+              <div className="stat-label">Cliques Totais</div>
             </div>
           </div>
 
           <div className="stat-card">
             <div className="stat-icon" style={{ backgroundColor: "rgba(239, 68, 68, 0.15)", color: "var(--danger)" }}>
-              <AlertCircle size={18} />
+              <Layers size={18} />
             </div>
             <div>
               <div className="stat-value">{highPriorityCount}</div>
@@ -239,12 +310,12 @@ export default function Dashboard() {
           </div>
 
           <div className="stat-card">
-            <div className="stat-icon" style={{ backgroundColor: "rgba(245, 158, 11, 0.15)", color: "var(--warning)" }}>
-              <Tag size={18} />
+            <div className="stat-icon" style={{ backgroundColor: "rgba(16, 185, 129, 0.15)", color: "var(--success)" }}>
+              <Clock size={18} />
             </div>
             <div>
-              <div className="stat-value">{allTags.length}</div>
-              <div className="stat-label">Tags Usadas</div>
+              <div className="stat-value">{readLaterCount}</div>
+              <div className="stat-label">Ler Mais Tarde</div>
             </div>
           </div>
         </div>
@@ -252,7 +323,12 @@ export default function Dashboard() {
         {/* CABEÇALHO DO DASHBOARD */}
         <div className="dashboard-header">
           <div>
-            <h2 style={{ fontSize: "1.75rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <span className="badge-tag" style={{ backgroundColor: "var(--accent-light)", color: "var(--accent)" }}>
+                <Briefcase size={12} /> {activeWorkspaceObj.name}
+              </span>
+            </div>
+            <h2 style={{ fontSize: "1.75rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.25rem" }}>
               {selectedCategoryId !== "all" && activeCategory && (
                 <span style={{ 
                   width: "12px", 
@@ -262,7 +338,7 @@ export default function Dashboard() {
                   display: "inline-block"
                 }} />
               )}
-              {categoryTitle}
+              {mainTitle}
             </h2>
             <p style={{ color: "var(--text-tertiary)", fontSize: "0.85rem", marginTop: "0.25rem" }}>
               {filteredLinks.length} {filteredLinks.length === 1 ? "favorito encontrado" : "favoritos encontrados"}
@@ -378,7 +454,7 @@ export default function Dashboard() {
                   borderRadius: "var(--radius-sm)",
                   boxShadow: viewMode === "grid" ? "var(--shadow-sm)" : "none"
                 }}
-                title="Visualização em Grade (Cards Grandes)"
+                title="Visualização em Grade (Cards)"
               >
                 <LayoutGrid size={16} />
               </button>
@@ -423,7 +499,7 @@ export default function Dashboard() {
         </div>
 
         {/* Exibição de Tags de Filtro Ativos */}
-        {(selectedTag || selectedPriority !== "all" || searchQuery || hiddenUnlocked) && (
+        {(selectedTag || selectedPriority !== "all" || searchQuery || selectedSpecialFilter !== "all" || hiddenUnlocked) && (
           <div style={{ 
             display: "flex", 
             flexWrap: "wrap", 
@@ -437,6 +513,13 @@ export default function Dashboard() {
             <span style={{ display: "flex", alignItems: "center", gap: "0.25rem", fontSize: "0.8rem", fontWeight: 600, color: "var(--text-secondary)" }}>
               <Filter size={14} /> Filtros Ativos:
             </span>
+
+            {selectedSpecialFilter !== "all" && (
+              <span className="tag-token" style={{ padding: "0.15rem 0.5rem", fontSize: "0.75rem" }}>
+                Modo: {selectedSpecialFilter === "most-visited" ? "Mais Acessados" : "Ler Mais Tarde"}
+                <span onClick={() => setSelectedSpecialFilter("all")} className="tag-token-close"><X size={12} /></span>
+              </span>
+            )}
 
             {searchQuery && (
               <span className="tag-token" style={{ padding: "0.15rem 0.5rem", fontSize: "0.75rem" }}>
@@ -464,6 +547,7 @@ export default function Dashboard() {
                 setSelectedTag("");
                 setSearchQuery("");
                 setSelectedPriority("all");
+                setSelectedSpecialFilter("all");
               }}
               style={{
                 fontSize: "0.75rem",
@@ -486,7 +570,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* LISTAGEM OU GRID DE FAVORITOS SALVOS */}
+        {/* LISTAGEM OU GRID DE FAVORITOS SALVOS (COM DRAG & DROP) */}
         {filteredLinks.length > 0 ? (
           viewMode === "list" ? (
             <div className="links-list-container">
@@ -498,6 +582,9 @@ export default function Dashboard() {
                   onSelectTag={setSelectedTag}
                   onOpenQrCode={handleOpenQrModal}
                   viewMode="list"
+                  onDragStart={(e) => handleDragStart(e, link)}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDropOnCard(e, link)}
                 />
               ))}
             </div>
@@ -511,6 +598,9 @@ export default function Dashboard() {
                   onSelectTag={setSelectedTag}
                   onOpenQrCode={handleOpenQrModal}
                   viewMode="grid"
+                  onDragStart={(e) => handleDragStart(e, link)}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDropOnCard(e, link)}
                 />
               ))}
             </div>
@@ -688,6 +778,13 @@ export default function Dashboard() {
           setLinkForQr(null);
         }}
         link={linkForQr}
+      />
+
+      {/* MODAL DE VERIFICAÇÃO DE SAÚDE DOS LINKS */}
+      <HealthCheckModal
+        isOpen={healthCheckOpen}
+        onClose={() => setHealthCheckOpen(false)}
+        onEditLink={handleOpenEditModal}
       />
 
       {/* CSS extra para regras desktop/mobile */}

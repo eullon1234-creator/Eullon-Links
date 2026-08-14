@@ -1,13 +1,25 @@
 import React, { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
-import { X, Bookmark, Plus, Tag, HelpCircle, Image as ImageIcon, Lock } from "lucide-react";
+import { 
+  X, 
+  Bookmark, 
+  Tag, 
+  Image as ImageIcon, 
+  Lock, 
+  Sparkles, 
+  Clock, 
+  Briefcase, 
+  Check, 
+  Loader2 
+} from "lucide-react";
 
 export default function AddEditLinkModal({ isOpen, onClose, linkToEdit = null }) {
-  const { categories, addLink, updateLink } = useApp();
+  const { categories, workspaces, currentWorkspace, addLink, updateLink, fetchUrlMetadata } = useApp();
 
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
   const [categoryId, setCategoryId] = useState("cat-general");
+  const [workspaceId, setWorkspaceId] = useState("ws-pessoal");
   const [photoUrl, setPhotoUrl] = useState("");
   const [notes, setNotes] = useState("");
   const [priority, setPriority] = useState("low");
@@ -18,9 +30,11 @@ export default function AddEditLinkModal({ isOpen, onClose, linkToEdit = null })
   const [tagInput, setTagInput] = useState("");
 
   const [isHidden, setIsHidden] = useState(false);
+  const [isReadLater, setIsReadLater] = useState(false);
 
   const [error, setError] = useState("");
   const [fetchingMetadata, setFetchingMetadata] = useState(false);
+  const [metadataSuccess, setMetadataSuccess] = useState(false);
 
   // Carrega os dados se for edição
   useEffect(() => {
@@ -28,26 +42,31 @@ export default function AddEditLinkModal({ isOpen, onClose, linkToEdit = null })
       setTitle(linkToEdit.title || "");
       setUrl(linkToEdit.url || "");
       setCategoryId(linkToEdit.categoryId || "cat-general");
+      setWorkspaceId(linkToEdit.workspaceId || "ws-pessoal");
       setPhotoUrl(linkToEdit.photoUrl || "");
       setNotes(linkToEdit.notes || "");
       setPriority(linkToEdit.priority || "low");
       setObservation(linkToEdit.observation || "");
       setTags(linkToEdit.tags || []);
       setIsHidden(linkToEdit.isHidden || false);
+      setIsReadLater(linkToEdit.isReadLater || false);
     } else {
       // Limpar formulário para inserção
       setTitle("");
       setUrl("");
       setCategoryId("cat-general");
+      setWorkspaceId(currentWorkspace === "all" ? "ws-pessoal" : currentWorkspace);
       setPhotoUrl("");
       setNotes("");
       setPriority("low");
       setObservation("");
       setTags([]);
       setIsHidden(false);
+      setIsReadLater(false);
     }
     setError("");
-  }, [linkToEdit, isOpen]);
+    setMetadataSuccess(false);
+  }, [linkToEdit, isOpen, currentWorkspace]);
 
   if (!isOpen) return null;
 
@@ -76,7 +95,7 @@ export default function AddEditLinkModal({ isOpen, onClose, linkToEdit = null })
     setTags(tags.filter((_, index) => index !== indexToRemove));
   };
 
-  const fetchLinkMetadata = async () => {
+  const handleFetchMetadata = async () => {
     let targetUrl = url.trim();
     if (!targetUrl) return;
 
@@ -86,74 +105,51 @@ export default function AddEditLinkModal({ isOpen, onClose, linkToEdit = null })
 
     setFetchingMetadata(true);
     setError("");
+    setMetadataSuccess(false);
 
     try {
-      const response = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(targetUrl)}`);
-      const result = await response.json();
-
-      if (result.status === "success" && result.data) {
-        const { title: fetchedTitle, description, image } = result.data;
-
-        // 1. Limpeza de Título Inteligente
-        let finalTitle = fetchedTitle || "";
-        if (finalTitle) {
-          try {
-            const hostname = new URL(targetUrl).hostname.replace("www.", "");
-            const brandName = hostname.split('.')[0];
-            if (brandName) {
-              const brandRegex = new RegExp(`\\s*[|–\\-:]\\s*${brandName}.*$`, 'i');
-              finalTitle = finalTitle.replace(brandRegex, '');
-            }
-          } catch (e) {}
-          finalTitle = finalTitle.replace(/\s*[|–\-:]\s*$/, '').trim();
+      const meta = await fetchUrlMetadata(targetUrl);
+      if (meta) {
+        if (!title.trim() || title === targetUrl) {
+          setTitle(meta.title);
+        }
+        if (!notes.trim() && meta.description) {
+          setNotes(meta.description);
+        }
+        if (!photoUrl.trim() && meta.image) {
+          setPhotoUrl(meta.image);
         }
 
-        if (finalTitle && !title.trim()) {
-          setTitle(finalTitle);
-        }
-        if (description && !notes.trim()) {
-          setNotes(description);
-        }
-
-        // 2. Favicon de Alta Resolução como Capa Fallback
-        let finalPhotoUrl = (image && image.url) ? image.url : "";
-        if (!finalPhotoUrl) {
-          try {
-            const urlObj = new URL(targetUrl);
-            finalPhotoUrl = `https://www.google.com/s2/favicons?sz=128&domain=${urlObj.hostname}`;
-          } catch (e) {}
-        }
-        if (finalPhotoUrl && !photoUrl.trim()) {
-          setPhotoUrl(finalPhotoUrl);
-        }
-
-        // 3. Recomendação / Auto-Seleção de Categoria
+        // Sugestão automática de categoria baseada em palavras-chave
         if (categoryId === "cat-general") {
-          const categoryCheckText = `${finalTitle} ${description || ""} ${targetUrl}`.toLowerCase();
-          if (/\b(ia|ai|inteligência artificial|artificial intelligence|chatgpt|openai|gemini|claude|copilot|llama|deepseek|neural|machine learning|deep learning|robot|bot)\b/.test(categoryCheckText)) {
+          const checkText = `${meta.title} ${meta.description} ${targetUrl}`.toLowerCase();
+          if (/\b(ia|ai|inteligência artificial|chatgpt|openai|gemini|claude|deepseek|neural|llm)\b/.test(checkText)) {
             setCategoryId("cat-ai");
-          } else if (/\b(pc game|jogos? de pc|steam|epic games|gog|pcgaming)\b/.test(categoryCheckText)) {
+          } else if (/\b(pc game|steam|epic games|gog|jogos? de pc)\b/.test(checkText)) {
             setCategoryId("cat-pc-games");
-          } else if (/\b(switch|nintendo|retroarch|roms?|yuzu|ryujinx|gamepad)\b/.test(categoryCheckText)) {
+          } else if (/\b(switch|nintendo|retroarch|roms?|yuzu|ryujinx)\b/.test(checkText)) {
             setCategoryId("cat-switch-games");
-          } else if (/\b(mobile game|jogos? de celular|android game|ios game|google play|app store|play store)\b/.test(categoryCheckText)) {
+          } else if (/\b(celular|mobile game|android|ios|play store|app store)\b/.test(checkText)) {
             setCategoryId("cat-mobile-games");
-          } else if (/\b(emulator|emulador|dolphin|citra|pcsx|retroarch|mame|emulação)\b/.test(categoryCheckText)) {
+          } else if (/\b(emulator|emulador|dolphin|citra|pcsx|mame)\b/.test(checkText)) {
             setCategoryId("cat-emulators");
-          } else if (/\b(aula|curso|class|tutorial|learn|aprender|estudos|devocional|lesson|lectures?|faculdade|universidade)\b/.test(categoryCheckText)) {
+          } else if (/\b(aula|curso|tutorial|learn|aprender|estudos|devocional|faculdade)\b/.test(checkText)) {
             setCategoryId("cat-classes");
-          } else if (/\b(github|gitlab|repositório|repository|projetos?|código-fonte|source code|programming)\b/.test(categoryCheckText)) {
+          } else if (/\b(github|gitlab|repositório|projetos?|código|programming|dev)\b/.test(checkText)) {
             setCategoryId("cat-projects");
-          } else if (/\b(ferramenta|tools?|utilitário|editor|npm|package|library|framework|api|saas|gerador)\b/.test(categoryCheckText)) {
+          } else if (/\b(ferramenta|tools?|utilitário|editor|npm|api|saas|gerador)\b/.test(checkText)) {
             setCategoryId("cat-tools");
-          } else if (/\b(youtube|video|assista|vimeo|twitch|stream|live|filme|série|trailer)\b/.test(categoryCheckText)) {
+          } else if (/\b(youtube|video|vimeo|twitch|stream|live|filme|série)\b/.test(checkText)) {
             setCategoryId("cat-videos");
-          } else if (/\b(estudo|study|documentação|docs|wikipedia|wiki|livro|artigo|pesquisa)\b/.test(categoryCheckText)) {
+          } else if (/\b(estudo|study|documentação|docs|wikipedia|artigo)\b/.test(checkText)) {
             setCategoryId("cat-study");
-          } else if (/\b(trabalho|work|vaga|emprego|linkedin|slack|trello|jira|reunião|meeting)\b/.test(categoryCheckText)) {
+          } else if (/\b(trabalho|work|linkedin|slack|trello|jira|reunião)\b/.test(checkText)) {
             setCategoryId("cat-work");
           }
         }
+
+        setMetadataSuccess(true);
+        setTimeout(() => setMetadataSuccess(false), 3000);
       }
     } catch (err) {
       console.error("Erro ao buscar metadados:", err);
@@ -164,7 +160,7 @@ export default function AddEditLinkModal({ isOpen, onClose, linkToEdit = null })
 
   const handleUrlBlur = () => {
     if (!title.trim() && url.trim()) {
-      fetchLinkMetadata();
+      handleFetchMetadata();
     }
   };
 
@@ -187,12 +183,14 @@ export default function AddEditLinkModal({ isOpen, onClose, linkToEdit = null })
       title: title.trim(),
       url: formattedUrl,
       categoryId,
+      workspaceId,
       photoUrl: photoUrl.trim(),
       notes: notes.trim(),
       priority,
       observation: observation.trim(),
       tags,
-      isHidden
+      isHidden,
+      isReadLater
     };
 
     try {
@@ -209,23 +207,23 @@ export default function AddEditLinkModal({ isOpen, onClose, linkToEdit = null })
   };
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content animate-scale-up" style={{ maxWidth: "560px" }}>
+    <div className="modal-overlay" style={{ zIndex: 110 }}>
+      <div className="modal-content animate-scale-up" style={{ maxWidth: "580px" }}>
         
         {/* Header */}
         <div className="modal-header">
           <h2 style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "1.25rem" }}>
             <Bookmark size={22} style={{ color: "var(--accent)" }} />
-            {linkToEdit ? "Editar Favorito" : "Adicionar Favorito"}
+            {linkToEdit ? "Editar Favorito" : "Adicionar Novo Favorito"}
           </h2>
-          <button onClick={onClose} className="btn-icon-only" style={{ padding: "0.25rem" }}>
+          <button onClick={onClose} className="btn-icon-only">
             <X size={20} />
           </button>
         </div>
 
         {/* Form Body */}
         <form onSubmit={handleSubmit}>
-          <div className="modal-body" style={{ maxHeight: "65vh" }}>
+          <div className="modal-body" style={{ maxHeight: "70vh", overflowY: "auto" }}>
             {error && (
               <div style={{
                 backgroundColor: "var(--danger-light)",
@@ -240,9 +238,16 @@ export default function AddEditLinkModal({ isOpen, onClose, linkToEdit = null })
               </div>
             )}
 
-            {/* URL */}
+            {/* URL com Auto-Fetch Inteligente */}
             <div className="form-group">
-              <label className="form-label" htmlFor="link-url">URL do Link *</label>
+              <label className="form-label" htmlFor="link-url" style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>URL do Link *</span>
+                {metadataSuccess && (
+                  <span style={{ color: "var(--success)", fontSize: "0.75rem", display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                    <Check size={12} /> Dados preenchidos automaticamente!
+                  </span>
+                )}
+              </label>
               <div style={{ display: "flex", gap: "0.5rem" }}>
                 <input
                   id="link-url"
@@ -257,19 +262,38 @@ export default function AddEditLinkModal({ isOpen, onClose, linkToEdit = null })
                 />
                 <button
                   type="button"
-                  onClick={fetchLinkMetadata}
+                  onClick={handleFetchMetadata}
                   disabled={fetchingMetadata || !url.trim()}
-                  className="btn btn-secondary"
-                  style={{ padding: "0 1rem", fontSize: "0.85rem", height: "46px" }}
+                  className="btn btn-primary"
+                  style={{ 
+                    padding: "0 1rem", 
+                    fontSize: "0.85rem", 
+                    height: "46px", 
+                    whiteSpace: "nowrap",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.4rem"
+                  }}
+                  title="Detectar Título, Capa e Descrição automaticamente"
                 >
-                  {fetchingMetadata ? "Buscando..." : "Capturar"}
+                  {fetchingMetadata ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Detectando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={16} />
+                      <span>Preencher Auto</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
 
             {/* Título */}
             <div className="form-group">
-              <label className="form-label" htmlFor="link-title">Título *</label>
+              <label className="form-label" htmlFor="link-title">Título do Favorito *</label>
               <input
                 id="link-title"
                 type="text"
@@ -277,12 +301,32 @@ export default function AddEditLinkModal({ isOpen, onClose, linkToEdit = null })
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="form-input"
-                placeholder="Nome curto do favorito"
+                placeholder="Ex: Documentação do React"
               />
             </div>
 
-            {/* Categoria & Prioridade */}
+            {/* Workspace & Categoria */}
             <div className="form-row">
+              <div className="form-group">
+                <label className="form-label" htmlFor="link-workspace">
+                  <Briefcase size={14} style={{ display: "inline", marginRight: "0.3rem", verticalAlign: "middle" }} />
+                  Espaço de Trabalho (Workspace)
+                </label>
+                <select
+                  id="link-workspace"
+                  value={workspaceId}
+                  onChange={(e) => setWorkspaceId(e.target.value)}
+                  className="form-input"
+                  style={{ cursor: "pointer", height: "46px" }}
+                >
+                  {workspaces.filter(w => w.id !== "all").map(ws => (
+                    <option key={ws.id} value={ws.id}>
+                      {ws.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="form-group">
                 <label className="form-label" htmlFor="link-category">Categoria</label>
                 <select
@@ -299,9 +343,12 @@ export default function AddEditLinkModal({ isOpen, onClose, linkToEdit = null })
                   ))}
                 </select>
               </div>
+            </div>
 
+            {/* Prioridade & Ler Mais Tarde */}
+            <div className="form-row">
               <div className="form-group">
-                <label className="form-label" htmlFor="link-priority">Prioridade</label>
+                <label className="form-label" htmlFor="link-priority">Nível de Prioridade</label>
                 <select
                   id="link-priority"
                   value={priority}
@@ -311,38 +358,34 @@ export default function AddEditLinkModal({ isOpen, onClose, linkToEdit = null })
                 >
                   <option value="low">Baixa</option>
                   <option value="medium">Média</option>
-                  <option value="high">Alta</option>
+                  <option value="high">Alta Prioridade 🔥</option>
                 </select>
               </div>
-            </div>
 
-            {/* Observação de prioridade */}
-            <div className="form-group">
-              <label className="form-label" htmlFor="link-obs">Observação de Prioridade / Status</label>
-              <input
-                id="link-obs"
-                type="text"
-                value={observation}
-                onChange={(e) => setObservation(e.target.value)}
-                className="form-input"
-                placeholder="Ex: Ler no fim de semana, Urgente para o projeto..."
-              />
+              <div className="form-group">
+                <label className="form-label" htmlFor="link-obs">Lembrete / Status</label>
+                <input
+                  id="link-obs"
+                  type="text"
+                  value={observation}
+                  onChange={(e) => setObservation(e.target.value)}
+                  className="form-input"
+                  placeholder="Ex: Revisar até sexta-feira..."
+                />
+              </div>
             </div>
 
             {/* Foto URL e Preview */}
             <div className="form-group">
-              <label className="form-label" htmlFor="link-photo">URL da Imagem de Capa (Opcional)</label>
-              <div style={{ display: "flex", gap: "0.5rem" }}>
-                <input
-                  id="link-photo"
-                  type="text"
-                  value={photoUrl}
-                  onChange={(e) => setPhotoUrl(e.target.value)}
-                  className="form-input"
-                  placeholder="https://exemplo.com/imagem.png"
-                  style={{ flex: 1 }}
-                />
-              </div>
+              <label className="form-label" htmlFor="link-photo">Imagem de Capa / Favicon</label>
+              <input
+                id="link-photo"
+                type="text"
+                value={photoUrl}
+                onChange={(e) => setPhotoUrl(e.target.value)}
+                className="form-input"
+                placeholder="https://exemplo.com/imagem.png"
+              />
 
               {photoUrl && (
                 <div style={{ 
@@ -350,7 +393,7 @@ export default function AddEditLinkModal({ isOpen, onClose, linkToEdit = null })
                   borderRadius: "var(--radius-md)", 
                   border: "1px solid var(--border-color)",
                   overflow: "hidden",
-                  height: "90px",
+                  height: "80px",
                   display: "flex",
                   alignItems: "center",
                   backgroundColor: "var(--bg-primary)"
@@ -359,10 +402,10 @@ export default function AddEditLinkModal({ isOpen, onClose, linkToEdit = null })
                     src={photoUrl} 
                     alt="Preview da Capa" 
                     onError={(e) => e.target.style.display = 'none'}
-                    style={{ height: "100%", width: "120px", objectFit: "cover" }} 
+                    style={{ height: "100%", width: "100px", objectFit: "cover" }} 
                   />
                   <div style={{ padding: "0.75rem", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                    <p style={{ fontWeight: 600 }}>Visualização da Capa</p>
+                    <p style={{ fontWeight: 600 }}>Capa detectada com sucesso</p>
                     <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)", wordBreak: "break-all" }}>
                       {photoUrl}
                     </span>
@@ -373,7 +416,7 @@ export default function AddEditLinkModal({ isOpen, onClose, linkToEdit = null })
 
             {/* Tags Tokenizer */}
             <div className="form-group">
-              <label className="form-label">Tags (Pressione Enter ou vírgula para adicionar)</label>
+              <label className="form-label">Tags (Pressione Enter ou vírgula)</label>
               <div className="tags-input-container">
                 {tags.map((tag, idx) => (
                   <span key={tag} className="tag-token">
@@ -395,34 +438,49 @@ export default function AddEditLinkModal({ isOpen, onClose, linkToEdit = null })
                   onKeyDown={handleTagKeyDown}
                   onBlur={addTagToken}
                   className="tags-raw-input"
-                  placeholder={tags.length === 0 ? "Ex: javascript, design, estudos" : ""}
+                  placeholder={tags.length === 0 ? "Ex: dev, react, tutorial..." : ""}
                 />
               </div>
             </div>
 
-            {/* Link Oculto */}
-            <div className="form-group" style={{ marginBottom: "1rem" }}>
-              <label className="form-label" style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+            {/* Checkboxes de Opções Rápidas (Ler Mais Tarde & Oculto) */}
+            <div style={{ display: "flex", gap: "1.5rem", marginTop: "0.5rem", marginBottom: "1rem", flexWrap: "wrap" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={isReadLater}
+                  onChange={(e) => setIsReadLater(e.target.checked)}
+                  style={{ width: "18px", height: "18px", accentColor: "var(--accent)", cursor: "pointer" }}
+                />
+                <span style={{ fontSize: "0.875rem", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                  <Clock size={15} style={{ color: "var(--accent)" }} />
+                  Marcar para <strong>Ler Mais Tarde</strong>
+                </span>
+              </label>
+
+              <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
                 <input
                   type="checkbox"
                   checked={isHidden}
                   onChange={(e) => setIsHidden(e.target.checked)}
-                  style={{ width: "18px", height: "18px", accentColor: "var(--accent)", cursor: "pointer" }}
+                  style={{ width: "18px", height: "18px", accentColor: "var(--warning)", cursor: "pointer" }}
                 />
-                <span style={{ fontSize: "0.875rem" }}>Link Oculto (só aparece após desbloqueio com código)</span>
-                <Lock size={14} style={{ color: isHidden ? "var(--accent)" : "var(--text-tertiary)", marginLeft: "0.25rem" }} />
+                <span style={{ fontSize: "0.875rem", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                  <Lock size={15} style={{ color: "var(--warning)" }} />
+                  Link Oculto (protegido por código)
+                </span>
               </label>
             </div>
 
             {/* Notas Personalizadas */}
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label" htmlFor="link-notes">Notas Personalizadas</label>
+              <label className="form-label" htmlFor="link-notes">Notas / Descrição</label>
               <textarea
                 id="link-notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 className="form-input"
-                placeholder="Insira descrições, trechos importantes, ou anotações extras sobre este link..."
+                placeholder="Insira anotações, resumo ou detalhes importantes sobre este favorito..."
                 rows={3}
               />
             </div>
@@ -435,7 +493,7 @@ export default function AddEditLinkModal({ isOpen, onClose, linkToEdit = null })
               Cancelar
             </button>
             <button type="submit" className="btn btn-primary">
-              {linkToEdit ? "Salvar Alterações" : "Salvar Favorito"}
+              {linkToEdit ? "Salvar Alterações" : "Adicionar Favorito"}
             </button>
           </div>
         </form>

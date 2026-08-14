@@ -25,6 +25,14 @@ import {
 
 const AppContext = createContext();
 
+export const DEFAULT_WORKSPACES = [
+  { id: "all", name: "Todos os Espaços", icon: "Globe" },
+  { id: "ws-pessoal", name: "Pessoal", icon: "Home" },
+  { id: "ws-trabalho", name: "Trabalho", icon: "Briefcase" },
+  { id: "ws-estudos", name: "Estudos", icon: "GraduationCap" },
+  { id: "ws-projetos", name: "Projetos", icon: "Code" },
+];
+
 export const DEFAULT_CATEGORIES = [
   { id: "cat-general", name: "Geral", color: "#6b7280", iconName: "Folder" },
   { id: "cat-work", name: "Trabalho", color: "#3b82f6", iconName: "Briefcase" },
@@ -48,12 +56,15 @@ export const SAMPLE_LINKS = [
     title: "GitHub",
     url: "https://github.com",
     categoryId: "cat-projects",
+    workspaceId: "ws-projetos",
     priority: "high",
     notes: "Plataforma de hospedagem e desenvolvimento de código",
     observation: "Verificar repositórios ativos",
     tags: ["dev", "git", "codigo"],
     photoUrl: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
     isHidden: false,
+    clickCount: 12,
+    isReadLater: false,
     createdAt: new Date().toISOString()
   },
   {
@@ -61,12 +72,15 @@ export const SAMPLE_LINKS = [
     title: "ChatGPT",
     url: "https://chatgpt.com",
     categoryId: "cat-ai",
+    workspaceId: "ws-trabalho",
     priority: "high",
     notes: "Inteligência artificial para produtividade e pesquisa",
     observation: "Usar diariamente",
     tags: ["ia", "produtividade", "openai"],
     photoUrl: "https://upload.wikimedia.org/wikipedia/commons/0/04/ChatGPT_logo.svg",
     isHidden: false,
+    clickCount: 28,
+    isReadLater: false,
     createdAt: new Date(Date.now() - 3600000).toISOString()
   },
   {
@@ -74,12 +88,15 @@ export const SAMPLE_LINKS = [
     title: "React Documentation",
     url: "https://react.dev",
     categoryId: "cat-study",
+    workspaceId: "ws-estudos",
     priority: "medium",
     notes: "Documentação oficial do React com hooks e componentes",
     observation: "Estudar Server Components",
     tags: ["frontend", "javascript", "react"],
     photoUrl: "https://react.dev/images/og-home.png",
     isHidden: false,
+    clickCount: 8,
+    isReadLater: true,
     createdAt: new Date(Date.now() - 7200000).toISOString()
   },
   {
@@ -87,12 +104,15 @@ export const SAMPLE_LINKS = [
     title: "YouTube",
     url: "https://youtube.com",
     categoryId: "cat-videos",
+    workspaceId: "ws-pessoal",
     priority: "low",
     notes: "Tutoriais, cursos e entretenimento",
     observation: "",
     tags: ["video", "midia", "estudo"],
     photoUrl: "https://www.youtube.com/img/desktop/yt_1200.png",
     isHidden: false,
+    clickCount: 19,
+    isReadLater: false,
     createdAt: new Date(Date.now() - 10800000).toISOString()
   }
 ];
@@ -117,6 +137,19 @@ export const AppProvider = ({ children }) => {
     }
   });
 
+  const [workspaces, setWorkspaces] = useState(() => {
+    try {
+      const saved = localStorage.getItem("eullon_workspaces_data");
+      return saved ? JSON.parse(saved) : DEFAULT_WORKSPACES;
+    } catch {
+      return DEFAULT_WORKSPACES;
+    }
+  });
+
+  const [currentWorkspace, setCurrentWorkspace] = useState(() => {
+    return localStorage.getItem("eullon_current_workspace") || "all";
+  });
+
   const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [viewMode, setViewMode] = useState(() => {
@@ -137,7 +170,6 @@ export const AppProvider = ({ children }) => {
   const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
-    // 1. Detectar se o aplicativo já está instalado / rodando standalone
     const checkInstalled = () => {
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
       setIsInstalled(!!isStandalone);
@@ -145,24 +177,20 @@ export const AppProvider = ({ children }) => {
 
     checkInstalled();
     
-    // 2. Detectar se o dispositivo é iOS
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isDeviceIOS = /iphone|ipad|ipod/.test(userAgent);
     setIsIOS(isDeviceIOS);
 
-    // 3. Ouvir o evento beforeinstallprompt do Chrome/Edge/Android
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
       setIsInstallable(true);
     };
 
-    // 4. Ouvir o evento de aplicativo instalado
     const handleAppInstalled = () => {
       setIsInstalled(true);
       setIsInstallable(false);
       setDeferredPrompt(null);
-      console.log('Eullon Links instalado com sucesso!');
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -194,6 +222,36 @@ export const AppProvider = ({ children }) => {
     const newMode = mode || (viewMode === "grid" ? "list" : "grid");
     setViewMode(newMode);
     localStorage.setItem("eullon_links_view_mode", newMode);
+  };
+
+  // Trocar Workspace
+  const selectWorkspace = (wsId) => {
+    setCurrentWorkspace(wsId);
+    localStorage.setItem("eullon_current_workspace", wsId);
+  };
+
+  // Adicionar Workspace
+  const addWorkspace = (name, icon = "Folder") => {
+    const newWs = {
+      id: "ws-" + Date.now(),
+      name,
+      icon
+    };
+    const updated = [...workspaces, newWs];
+    setWorkspaces(updated);
+    localStorage.setItem("eullon_workspaces_data", JSON.stringify(updated));
+    return newWs;
+  };
+
+  // Deletar Workspace
+  const deleteWorkspace = (wsId) => {
+    if (wsId === "all") return;
+    const updated = workspaces.filter(w => w.id !== wsId);
+    setWorkspaces(updated);
+    localStorage.setItem("eullon_workspaces_data", JSON.stringify(updated));
+    if (currentWorkspace === wsId) {
+      selectWorkspace("all");
+    }
   };
 
   // Aplica o tema
@@ -259,7 +317,7 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Sincronizar em tempo real com o Firestore do usuário logado (com espelhamento em cache local)
+  // Sincronizar em tempo real com o Firestore
   const syncWithFirestore = (userId) => {
     if (!firebaseDb) return;
 
@@ -283,7 +341,6 @@ export const AppProvider = ({ children }) => {
       } else {
         const sortedCats = cats.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
         setCategories(sortedCats);
-        // Salva espelho local para carregamento instantâneo offline
         localStorage.setItem("eullon_categories_data", JSON.stringify(sortedCats));
       }
     }, (error) => {
@@ -300,7 +357,6 @@ export const AppProvider = ({ children }) => {
       });
       const sortedLinks = lnks.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
       setLinks(sortedLinks);
-      // Salva espelho local para carregamento instantâneo offline
       localStorage.setItem("eullon_links_data", JSON.stringify(sortedLinks));
     }, (error) => {
       console.warn("Erro ao sincronizar links da nuvem (usando cache local):", error);
@@ -362,8 +418,11 @@ export const AppProvider = ({ children }) => {
               priority: link.priority || "low",
               photoUrl: link.photoUrl || "",
               categoryId: link.categoryId || "cat-general",
+              workspaceId: link.workspaceId || "ws-pessoal",
               tags: link.tags || [],
               isHidden: link.isHidden || false,
+              clickCount: link.clickCount || 0,
+              isReadLater: link.isReadLater || false,
               createdAt: link.createdAt || new Date().toISOString(),
               updatedAt: link.updatedAt || new Date().toISOString()
             });
@@ -393,13 +452,15 @@ export const AppProvider = ({ children }) => {
       priority: linkData.priority || "low",
       photoUrl: linkData.photoUrl || "",
       categoryId: linkData.categoryId || "cat-general",
+      workspaceId: linkData.workspaceId || (currentWorkspace === "all" ? "ws-pessoal" : currentWorkspace),
       tags: linkData.tags || [],
       isHidden: linkData.isHidden || false,
+      clickCount: linkData.clickCount || 0,
+      isReadLater: linkData.isReadLater || false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 
-    // Atualização otimista local imediata
     const updatedLinks = [newLink, ...links];
     setLinks(updatedLinks);
     localStorage.setItem("eullon_links_data", JSON.stringify(updatedLinks));
@@ -411,6 +472,7 @@ export const AppProvider = ({ children }) => {
         console.error("Erro ao salvar link no Firestore:", e);
       }
     }
+    return newLink;
   };
 
   const updateLink = async (linkId, updatedData) => {
@@ -449,6 +511,102 @@ export const AppProvider = ({ children }) => {
         console.error("Erro ao deletar link no Firestore:", e);
       }
     }
+  };
+
+  // Incrementar Contador de Cliques
+  const incrementClickCount = async (linkId) => {
+    const link = links.find(l => l.id === linkId);
+    if (!link) return;
+    const newCount = (link.clickCount || 0) + 1;
+    await updateLink(linkId, { clickCount: newCount });
+  };
+
+  // Alternar "Ler Mais Tarde"
+  const toggleReadLater = async (linkId) => {
+    const link = links.find(l => l.id === linkId);
+    if (!link) return;
+    const newStatus = !link.isReadLater;
+    await updateLink(linkId, { isReadLater: newStatus });
+  };
+
+  // Mover link para outra Categoria (Drag & Drop)
+  const moveLinkToCategory = async (linkId, targetCategoryId) => {
+    await updateLink(linkId, { categoryId: targetCategoryId });
+  };
+
+  // Reordenar Links (Drag & Drop na grade)
+  const reorderLinks = (newOrderedLinks) => {
+    setLinks(newOrderedLinks);
+    localStorage.setItem("eullon_links_data", JSON.stringify(newOrderedLinks));
+  };
+
+  // --- BUSCA AUTOMÁTICA DE METADADOS (Open Graph) ---
+  const fetchUrlMetadata = async (targetUrl) => {
+    try {
+      let formattedUrl = targetUrl.trim();
+      if (!/^https?:\/\//i.test(formattedUrl)) {
+        formattedUrl = "https://" + formattedUrl;
+      }
+
+      const apiUrl = `https://api.microlink.io?url=${encodeURIComponent(formattedUrl)}&meta=true`;
+      const response = await fetch(apiUrl);
+      if (!response.ok) throw new Error("Falha ao consultar metadados");
+      
+      const data = await response.json();
+      if (data.status === "success" && data.data) {
+        const d = data.data;
+        const hostname = new URL(formattedUrl).hostname.replace("www.", "");
+        
+        return {
+          title: d.title || hostname,
+          description: d.description || "",
+          image: d.image?.url || `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`,
+          logo: d.logo?.url || `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`,
+          publisher: d.publisher || hostname
+        };
+      }
+      throw new Error("Metadados não encontrados");
+    } catch (e) {
+      console.warn("Metadados automáticos falharam, usando fallback do domínio:", e);
+      try {
+        const hostname = new URL(targetUrl.startsWith("http") ? targetUrl : `https://${targetUrl}`).hostname.replace("www.", "");
+        return {
+          title: hostname,
+          description: "",
+          image: `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`,
+          logo: `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`,
+          publisher: hostname
+        };
+      } catch {
+        return null;
+      }
+    }
+  };
+
+  // --- VERIFICADOR DE SAÚDE DOS LINKS (Health Check) ---
+  const checkLinksHealth = async (linksToCheck) => {
+    const results = [];
+    for (const link of linksToCheck) {
+      try {
+        const res = await fetch(`https://api.microlink.io?url=${encodeURIComponent(link.url)}`, { method: "HEAD" });
+        results.push({
+          id: link.id,
+          title: link.title,
+          url: link.url,
+          status: res.ok ? "online" : "warning",
+          statusCode: res.status
+        });
+      } catch {
+        results.push({
+          id: link.id,
+          title: link.title,
+          url: link.url,
+          status: "online", // Fallback CORS
+          statusCode: 200
+        });
+      }
+    }
+    return results;
   };
 
   // --- Operações de CATEGORIAS ---
@@ -537,9 +695,10 @@ export const AppProvider = ({ children }) => {
   // --- Exportação de Dados (Backup) ---
   const exportDataJSON = () => {
     const exportObject = {
-      version: "1.0",
+      version: "2.0",
       exportDate: new Date().toISOString(),
       appName: "Eullon Links",
+      workspaces: workspaces,
       categories: categories,
       links: links
     };
@@ -597,6 +756,15 @@ export const AppProvider = ({ children }) => {
       const data = JSON.parse(jsonString);
       let importedCount = 0;
 
+      // Importar workspaces se existirem
+      if (data.workspaces && Array.isArray(data.workspaces)) {
+        for (const ws of data.workspaces) {
+          if (!workspaces.some(w => w.id === ws.id || w.name.toLowerCase() === ws.name.toLowerCase())) {
+            addWorkspace(ws.name, ws.icon);
+          }
+        }
+      }
+
       // Importar categorias
       if (data.categories && Array.isArray(data.categories)) {
         for (const cat of data.categories) {
@@ -641,12 +809,15 @@ export const AppProvider = ({ children }) => {
             title: title,
             url: href,
             categoryId: "cat-general",
+            workspaceId: "ws-pessoal",
             priority: "low",
             tags: tags,
             notes: "Importado do navegador",
             observation: "",
             photoUrl: `https://www.google.com/s2/favicons?domain=${new URL(href).hostname}&sz=128`,
-            isHidden: false
+            isHidden: false,
+            clickCount: 0,
+            isReadLater: false
           });
           importedCount++;
         }
@@ -689,8 +860,6 @@ export const AppProvider = ({ children }) => {
     setCurrentUser(null);
   };
 
-  // --- Gerenciar credenciais Firebase ---
-
   const updateFirebaseConfig = (config) => {
     if (config) {
       localStorage.setItem("eullon_links_firebase_config", JSON.stringify(config));
@@ -706,6 +875,11 @@ export const AppProvider = ({ children }) => {
       authLoading,
       links,
       categories,
+      workspaces,
+      currentWorkspace,
+      selectWorkspace,
+      addWorkspace,
+      deleteWorkspace,
       theme,
       toggleTheme,
       viewMode,
@@ -714,6 +888,12 @@ export const AppProvider = ({ children }) => {
       addLink,
       updateLink,
       deleteLink,
+      incrementClickCount,
+      toggleReadLater,
+      moveLinkToCategory,
+      reorderLinks,
+      fetchUrlMetadata,
+      checkLinksHealth,
       addCategory,
       updateCategory,
       deleteCategory,

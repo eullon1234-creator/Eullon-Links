@@ -9,14 +9,28 @@ import {
   Lock,
   Copy,
   Check,
-  QrCode
+  QrCode,
+  Flame,
+  Clock,
+  GripVertical
 } from "lucide-react";
 import { CategoryIcon } from "./CategoryManagerModal";
 
-export default function LinkCard({ link, onEdit, onSelectTag, onOpenQrCode, viewMode = "grid" }) {
-  const { categories, deleteLink } = useApp();
+export default function LinkCard({ 
+  link, 
+  onEdit, 
+  onSelectTag, 
+  onOpenQrCode, 
+  viewMode = "grid",
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop
+}) {
+  const { categories, deleteLink, incrementClickCount, toggleReadLater } = useApp();
   const [imageError, setImageError] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Encontra a categoria correspondente
   const category = categories.find(cat => cat.id === link.categoryId) || {
@@ -59,7 +73,30 @@ export default function LinkCard({ link, onEdit, onSelectTag, onOpenQrCode, view
     }
   };
 
-  // Formata data de criação
+  // Clique no Link principal: incrementa contador de acessos
+  const handleLinkClick = () => {
+    incrementClickCount(link.id);
+  };
+
+  // Alternar Ler Mais Tarde
+  const handleToggleReadLater = (e) => {
+    e.stopPropagation();
+    toggleReadLater(link.id);
+  };
+
+  // Eventos de Drag & Drop
+  const handleDragStartInternal = (e) => {
+    setIsDragging(true);
+    e.dataTransfer.setData("text/plain", link.id);
+    e.dataTransfer.setData("application/json", JSON.stringify(link));
+    if (onDragStart) onDragStart(e, link);
+  };
+
+  const handleDragEndInternal = (e) => {
+    setIsDragging(false);
+    if (onDragEnd) onDragEnd(e, link);
+  };
+
   const formatDate = (dateIso) => {
     if (!dateIso) return "";
     try {
@@ -79,7 +116,19 @@ export default function LinkCard({ link, onEdit, onSelectTag, onOpenQrCode, view
   // --- MODO LISTA COMPACTA ---
   if (viewMode === "list") {
     return (
-      <div className="link-list-row animate-fade-in">
+      <div 
+        className={`link-list-row animate-fade-in ${isDragging ? "dragging" : ""}`}
+        draggable="true"
+        onDragStart={handleDragStartInternal}
+        onDragEnd={handleDragEndInternal}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+      >
+        {/* Grip Icon */}
+        <div style={{ color: "var(--text-tertiary)", cursor: "grab", display: "flex", alignItems: "center" }}>
+          <GripVertical size={16} />
+        </div>
+
         {/* Favicon / Letra */}
         <div 
           className="list-row-avatar"
@@ -109,6 +158,7 @@ export default function LinkCard({ link, onEdit, onSelectTag, onOpenQrCode, view
               href={link.url} 
               target="_blank" 
               rel="noopener noreferrer" 
+              onClick={handleLinkClick}
               className="list-row-title"
               title={link.title}
             >
@@ -128,6 +178,16 @@ export default function LinkCard({ link, onEdit, onSelectTag, onOpenQrCode, view
             {link.priority === "high" && (
               <span className="priority-pill priority-high">Alta</span>
             )}
+            {link.isReadLater && (
+              <span className="badge-tag" style={{ backgroundColor: "rgba(139, 92, 246, 0.15)", color: "var(--accent)" }}>
+                <Clock size={11} /> Ler mais tarde
+              </span>
+            )}
+            {link.clickCount > 0 && (
+              <span style={{ fontSize: "0.7rem", color: "var(--warning)", display: "inline-flex", alignItems: "center", gap: "0.2rem", fontWeight: 600 }}>
+                <Flame size={12} /> {link.clickCount} {link.clickCount === 1 ? "clique" : "cliques"}
+              </span>
+            )}
           </div>
           
           <div className="list-row-details">
@@ -145,6 +205,14 @@ export default function LinkCard({ link, onEdit, onSelectTag, onOpenQrCode, view
 
         {/* Ações Rápidas da Linha */}
         <div className="list-row-actions">
+          <button 
+            onClick={handleToggleReadLater} 
+            className="btn-icon-only" 
+            title={link.isReadLater ? "Remover de Ler Mais Tarde" : "Marcar para Ler Mais Tarde"}
+            style={{ color: link.isReadLater ? "var(--accent)" : "var(--text-tertiary)" }}
+          >
+            <Clock size={16} />
+          </button>
           <button 
             onClick={handleCopyLink} 
             className="btn-icon-only" 
@@ -179,6 +247,7 @@ export default function LinkCard({ link, onEdit, onSelectTag, onOpenQrCode, view
             href={link.url} 
             target="_blank" 
             rel="noopener noreferrer" 
+            onClick={handleLinkClick}
             className="btn-icon-only"
             title="Abrir em nova aba"
           >
@@ -191,7 +260,14 @@ export default function LinkCard({ link, onEdit, onSelectTag, onOpenQrCode, view
 
   // --- MODO GRADE PADRÃO ---
   return (
-    <div className="link-card animate-fade-in">
+    <div 
+      className={`link-card animate-fade-in ${isDragging ? "dragging" : ""}`}
+      draggable="true"
+      onDragStart={handleDragStartInternal}
+      onDragEnd={handleDragEndInternal}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+    >
       
       {/* Imagem de Capa do Card */}
       <div className="card-image-container">
@@ -243,7 +319,13 @@ export default function LinkCard({ link, onEdit, onSelectTag, onOpenQrCode, view
         
         {/* Título & Domínio */}
         <h3 className="card-title" title={link.title}>
-          <a href={link.url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "flex-start", gap: "0.25rem" }}>
+          <a 
+            href={link.url} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            onClick={handleLinkClick}
+            style={{ display: "inline-flex", alignItems: "flex-start", gap: "0.25rem" }}
+          >
             {link.title}
           </a>
         </h3>
@@ -253,6 +335,7 @@ export default function LinkCard({ link, onEdit, onSelectTag, onOpenQrCode, view
             href={link.url} 
             target="_blank" 
             rel="noopener noreferrer" 
+            onClick={handleLinkClick}
             className="card-url"
             title="Abrir link em nova aba"
           >
@@ -260,8 +343,34 @@ export default function LinkCard({ link, onEdit, onSelectTag, onOpenQrCode, view
             <ExternalLink size={12} style={{ marginLeft: "0.25rem", verticalAlign: "middle" }} />
           </a>
 
-          {/* Botões Rápidos */}
-          <div style={{ display: "flex", gap: "0.25rem" }}>
+          {/* Badges Rápidos (Cliques & Ler Mais Tarde) */}
+          <div style={{ display: "flex", gap: "0.25rem", alignItems: "center" }}>
+            {link.clickCount > 0 && (
+              <span 
+                style={{
+                  fontSize: "0.7rem",
+                  color: "var(--warning)",
+                  backgroundColor: "rgba(245, 158, 11, 0.1)",
+                  padding: "0.1rem 0.35rem",
+                  borderRadius: "var(--radius-sm)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.2rem",
+                  fontWeight: 600
+                }}
+                title={`${link.clickCount} acessos`}
+              >
+                <Flame size={12} /> {link.clickCount}
+              </span>
+            )}
+            <button 
+              onClick={handleToggleReadLater} 
+              className="btn-icon-mini" 
+              title={link.isReadLater ? "Remover de Ler Mais Tarde" : "Marcar para Ler Mais Tarde"}
+              style={{ color: link.isReadLater ? "var(--accent)" : "var(--text-tertiary)" }}
+            >
+              <Clock size={13} />
+            </button>
             <button 
               onClick={handleCopyLink} 
               className="btn-icon-mini" 
@@ -307,7 +416,7 @@ export default function LinkCard({ link, onEdit, onSelectTag, onOpenQrCode, view
         {link.observation && (
           <div className="card-observation" title="Observação de Prioridade">
             <div style={{ fontWeight: 600, fontSize: "0.75rem", textTransform: "uppercase", color: "var(--text-tertiary)", marginBottom: "0.15rem" }}>
-              Prioridade / Status:
+              Status / Lembrete:
             </div>
             {link.observation}
           </div>
