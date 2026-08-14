@@ -1,5 +1,10 @@
 import { initializeApp, getApps } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { 
+  initializeFirestore, 
+  getFirestore, 
+  persistentLocalCache, 
+  persistentMultipleTabManager 
+} from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
 export const getFirebaseConfig = () => {
@@ -55,7 +60,19 @@ export const initFirebaseInstance = () => {
     } else {
       app = initializeApp(config);
     }
-    db = getFirestore(app);
+
+    // Inicializa o Firestore com cache persistente multi-aba (IndexedDB)
+    try {
+      db = initializeFirestore(app, {
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager()
+        })
+      });
+    } catch (e) {
+      // Se já tiver sido inicializado anteriormente, pega a instância existente
+      db = getFirestore(app);
+    }
+
     auth = getAuth(app);
     return { app, db, auth };
   } catch (error) {
@@ -69,3 +86,4 @@ export const firebaseApp = instance.app;
 export const firebaseDb = instance.db;
 export const firebaseAuth = instance.auth;
 export const isFirebaseConfigured = !!instance.app;
+

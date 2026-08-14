@@ -10,7 +10,15 @@ import {
   Filter,
   Tag,
   Download,
-  Lock
+  Lock,
+  LayoutGrid,
+  List,
+  Sparkles,
+  Cloud,
+  Layers,
+  TrendingUp,
+  AlertCircle,
+  Smartphone
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import LinkCard from "../components/LinkCard";
@@ -20,9 +28,21 @@ import CategoryManagerModal from "../components/CategoryManagerModal";
 import FirebaseSettingsModal from "../components/FirebaseSettingsModal";
 import ExtensionModal from "../components/ExtensionModal";
 import InstallAppModal from "../components/InstallAppModal";
+import BackupModal from "../components/BackupModal";
+import QrCodeModal from "../components/QrCodeModal";
 
 export default function Dashboard() {
-  const { links, categories, isInstalled, isInstallable, isIOS } = useApp();
+  const { 
+    links, 
+    categories, 
+    isInstalled, 
+    isInstallable, 
+    isIOS,
+    viewMode,
+    toggleViewMode,
+    currentUser,
+    loadSampleLinks
+  } = useApp();
 
   // Estados dos filtros
   const [selectedCategoryId, setSelectedCategoryId] = useState("all");
@@ -38,6 +58,11 @@ export default function Dashboard() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [extensionOpen, setExtensionOpen] = useState(false);
   const [installOpen, setInstallOpen] = useState(false);
+  const [backupOpen, setBackupOpen] = useState(false);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [linkForQr, setLinkForQr] = useState(null);
+
+  // Links Ocultos
   const [hiddenUnlocked, setHiddenUnlocked] = useState(false);
   const [hiddenCodeInput, setHiddenCodeInput] = useState("");
   const [hiddenModalOpen, setHiddenModalOpen] = useState(false);
@@ -58,6 +83,11 @@ export default function Dashboard() {
   const handleOpenEditModal = (link) => {
     setLinkToEdit(link);
     setAddEditOpen(true);
+  };
+
+  const handleOpenQrModal = (link) => {
+    setLinkForQr(link);
+    setQrModalOpen(true);
   };
 
   // Filtragem Inteligente dos Links
@@ -108,7 +138,7 @@ export default function Dashboard() {
   const cleanSearchQueryText = searchQuery.startsWith("#") ? searchQuery.slice(1) : searchQuery;
   const tagSuggestions = searchQuery.trim() || searchQuery.startsWith("#")
     ? allTags.filter(tag => tag.toLowerCase().includes(cleanSearchQueryText.toLowerCase().trim()))
-    : allTags; // Se estiver em branco (ou apenas focada e com #), mostra todas
+    : allTags;
 
   const showSuggestions = searchFocused && (
     searchQuery.startsWith("#") || 
@@ -120,6 +150,10 @@ export default function Dashboard() {
     setSearchQuery("");
     setSearchFocused(false);
   };
+
+  // Contadores para os Cards de Estatísticas
+  const totalLinksCount = links.filter(l => !l.isHidden).length;
+  const highPriorityCount = links.filter(l => l.priority === "high" && !l.isHidden).length;
 
   return (
     <div className="app-container">
@@ -164,6 +198,7 @@ export default function Dashboard() {
         onOpenExtension={() => setExtensionOpen(true)}
         onOpenInstall={() => setInstallOpen(true)}
         onOpenHiddenLinks={() => setHiddenModalOpen(true)}
+        onOpenBackup={() => setBackupOpen(true)}
         isOpenMobile={mobileSidebarOpen}
         onCloseMobile={() => setMobileSidebarOpen(false)}
       />
@@ -171,7 +206,50 @@ export default function Dashboard() {
       {/* ÁREA PRINCIPAL DO DASHBOARD */}
       <main className="app-main animate-fade-in">
         
-        {/* Cabeçalho da área de conteúdo */}
+        {/* BARRA DE ESTATÍSTICAS RÁPIDAS */}
+        <div className="stats-grid">
+          <div className="stat-card">
+            <div className="stat-icon" style={{ backgroundColor: "rgba(139, 92, 246, 0.15)", color: "var(--accent)" }}>
+              <Bookmark size={18} />
+            </div>
+            <div>
+              <div className="stat-value">{totalLinksCount}</div>
+              <div className="stat-label">Total de Links</div>
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-icon" style={{ backgroundColor: "rgba(16, 185, 129, 0.15)", color: "var(--success)" }}>
+              <Layers size={18} />
+            </div>
+            <div>
+              <div className="stat-value">{categories.length}</div>
+              <div className="stat-label">Categorias</div>
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-icon" style={{ backgroundColor: "rgba(239, 68, 68, 0.15)", color: "var(--danger)" }}>
+              <AlertCircle size={18} />
+            </div>
+            <div>
+              <div className="stat-value">{highPriorityCount}</div>
+              <div className="stat-label">Alta Prioridade</div>
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-icon" style={{ backgroundColor: "rgba(245, 158, 11, 0.15)", color: "var(--warning)" }}>
+              <Tag size={18} />
+            </div>
+            <div>
+              <div className="stat-value">{allTags.length}</div>
+              <div className="stat-label">Tags Usadas</div>
+            </div>
+          </div>
+        </div>
+
+        {/* CABEÇALHO DO DASHBOARD */}
         <div className="dashboard-header">
           <div>
             <h2 style={{ fontSize: "1.75rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
@@ -191,7 +269,7 @@ export default function Dashboard() {
             </p>
           </div>
 
-          <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
             
             {/* Campo de Busca Rápida */}
             <div className="search-container">
@@ -201,9 +279,9 @@ export default function Dashboard() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => setSearchFocused(true)}
-                onBlur={() => setTimeout(() => setSearchFocused(false), 200)} // Pequeno delay para registrar cliques em sugestões
+                onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
                 className="search-input"
-                placeholder="Buscar ou digite # para tags..."
+                placeholder="Buscar por título ou #tags..."
                 aria-label="Buscar favoritos"
               />
               {searchQuery && (
@@ -216,7 +294,9 @@ export default function Dashboard() {
                     transform: "translateY(-50%)",
                     color: "var(--text-tertiary)",
                     cursor: "pointer",
-                    zIndex: 5
+                    zIndex: 5,
+                    background: "none",
+                    border: "none"
                   }}
                   title="Limpar busca"
                 >
@@ -224,7 +304,7 @@ export default function Dashboard() {
                 </button>
               )}
 
-              {/* Menu de Autocomplete de Tags */}
+              {/* Autocomplete de Tags */}
               {showSuggestions && (
                 <div 
                   className="glass-panel"
@@ -264,7 +344,10 @@ export default function Dashboard() {
                             textAlign: "left",
                             borderRadius: "var(--radius-sm)",
                             cursor: "pointer",
-                            transition: "all var(--transition-fast)"
+                            transition: "all var(--transition-fast)",
+                            background: "none",
+                            border: "none",
+                            color: "var(--text-primary)"
                           }}
                           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--bg-tertiary)"}
                           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
@@ -283,14 +366,47 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Alternador de Tema (Oculto em celular por já estar no header flutuante) */}
-            <div className="desktop-only" style={{ display: "flex", gap: "0.75rem" }}>
+            {/* Alternador de Visualização (Grid vs List) */}
+            <div className="view-mode-toggle" style={{ display: "flex", backgroundColor: "var(--bg-tertiary)", padding: "0.2rem", borderRadius: "var(--radius-md)", border: "1px solid var(--border-color)" }}>
+              <button 
+                onClick={() => toggleViewMode("grid")}
+                className={`btn-icon-only ${viewMode === "grid" ? "active" : ""}`}
+                style={{
+                  padding: "0.4rem",
+                  backgroundColor: viewMode === "grid" ? "var(--bg-card)" : "transparent",
+                  color: viewMode === "grid" ? "var(--accent)" : "var(--text-tertiary)",
+                  borderRadius: "var(--radius-sm)",
+                  boxShadow: viewMode === "grid" ? "var(--shadow-sm)" : "none"
+                }}
+                title="Visualização em Grade (Cards Grandes)"
+              >
+                <LayoutGrid size={16} />
+              </button>
+              <button 
+                onClick={() => toggleViewMode("list")}
+                className={`btn-icon-only ${viewMode === "list" ? "active" : ""}`}
+                style={{
+                  padding: "0.4rem",
+                  backgroundColor: viewMode === "list" ? "var(--bg-card)" : "transparent",
+                  color: viewMode === "list" ? "var(--accent)" : "var(--text-tertiary)",
+                  borderRadius: "var(--radius-sm)",
+                  boxShadow: viewMode === "list" ? "var(--shadow-sm)" : "none"
+                }}
+                title="Visualização em Lista Compacta"
+              >
+                <List size={16} />
+              </button>
+            </div>
+
+            {/* Alternador de Tema & Botão Adicionar */}
+            <div className="desktop-only" style={{ display: "flex", gap: "0.5rem" }}>
               <ThemeToggle />
               <button onClick={handleOpenAddModal} className="btn btn-primary">
                 <Plus size={18} />
                 Adicionar Link
               </button>
             </div>
+
           </div>
         </div>
 
@@ -354,7 +470,9 @@ export default function Dashboard() {
                 color: "var(--danger)",
                 fontWeight: 600,
                 marginLeft: "auto",
-                cursor: "pointer"
+                cursor: "pointer",
+                background: "none",
+                border: "none"
               }}
             >
               Limpar Todos
@@ -368,34 +486,93 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* GRID DE FAVORITOS SALVOS */}
+        {/* LISTAGEM OU GRID DE FAVORITOS SALVOS */}
         {filteredLinks.length > 0 ? (
-          <div className="links-grid">
-            {filteredLinks.map(link => (
-              <LinkCard 
-                key={link.id} 
-                link={link} 
-                onEdit={handleOpenEditModal}
-                onSelectTag={setSelectedTag}
-              />
-            ))}
-          </div>
+          viewMode === "list" ? (
+            <div className="links-list-container">
+              {filteredLinks.map(link => (
+                <LinkCard 
+                  key={link.id} 
+                  link={link} 
+                  onEdit={handleOpenEditModal}
+                  onSelectTag={setSelectedTag}
+                  onOpenQrCode={handleOpenQrModal}
+                  viewMode="list"
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="links-grid">
+              {filteredLinks.map(link => (
+                <LinkCard 
+                  key={link.id} 
+                  link={link} 
+                  onEdit={handleOpenEditModal}
+                  onSelectTag={setSelectedTag}
+                  onOpenQrCode={handleOpenQrModal}
+                  viewMode="grid"
+                />
+              ))}
+            </div>
+          )
         ) : (
-          /* Estado Vazio */
-          <div className="empty-state glass-panel" style={{ borderRadius: "var(--radius-lg)" }}>
-            <FolderOpen className="empty-state-icon" size={56} />
-            <h3 style={{ fontSize: "1.25rem" }}>Nenhum favorito encontrado</h3>
-            <p style={{ color: "var(--text-secondary)", maxWidth: "320px", fontSize: "0.9rem", lineHeight: "1.4" }}>
-              {links.length === 0 
-                ? "Sua lista de links está vazia. Comece adicionando o seu primeiro link favorito clicando no botão acima."
-                : "Nenhum dos seus favoritos salvos corresponde aos filtros de busca ou tags selecionadas no momento."
-              }
+          /* ESTADO VAZIO INTELIGENTE COM AÇÕES DIRETAS */
+          <div className="empty-state glass-panel animate-scale-up" style={{ borderRadius: "var(--radius-lg)", padding: "3rem 1.5rem" }}>
+            <div style={{
+              width: "72px",
+              height: "72px",
+              borderRadius: "50%",
+              backgroundColor: "rgba(var(--accent-rgb), 0.1)",
+              color: "var(--accent)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 1.25rem auto"
+            }}>
+              <FolderOpen size={36} />
+            </div>
+
+            <h3 style={{ fontSize: "1.4rem", fontWeight: 700, marginBottom: "0.5rem" }}>
+              {links.length === 0 ? "Nenhum favorito encontrado neste dispositivo" : "Nenhum link com os filtros selecionados"}
+            </h3>
+
+            <p style={{ color: "var(--text-secondary)", maxWidth: "480px", fontSize: "0.95rem", lineHeight: "1.5", margin: "0 auto 1.75rem auto" }}>
+              {links.length === 0 ? (
+                currentUser ? (
+                  "Você está conectado! Seus links da nuvem serão carregados automaticamente ou você pode adicionar seu primeiro favorito."
+                ) : (
+                  "Já tem links salvos em outro aparelho? Conecte sua conta do Firebase para sincronizar, importe um arquivo de backup ou adicione novos favoritos abaixo."
+                )
+              ) : (
+                "Nenhum dos seus favoritos salvos corresponde à pesquisa ou aos filtros de categoria/tags aplicados."
+              )}
             </p>
+
+            {/* Botões de Ação no Estado Vazio */}
             {links.length === 0 && (
-              <button onClick={handleOpenAddModal} className="btn btn-primary" style={{ marginTop: "0.5rem" }}>
-                <Plus size={16} />
-                Adicionar meu Primeiro Link
-              </button>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", justifyContent: "center", maxWidth: "520px", margin: "0 auto" }}>
+                <button onClick={handleOpenAddModal} className="btn btn-primary" style={{ padding: "0.75rem 1.25rem" }}>
+                  <Plus size={16} />
+                  Adicionar Link
+                </button>
+                
+                {!currentUser && (
+                  <button onClick={() => setSettingsOpen(true)} className="btn btn-secondary" style={{ padding: "0.75rem 1.25rem" }}>
+                    <Cloud size={16} style={{ color: "var(--accent)" }} />
+                    Sincronizar com a Nuvem
+                  </button>
+                )}
+
+                <button onClick={() => setBackupOpen(true)} className="btn btn-secondary" style={{ padding: "0.75rem 1.25rem" }}>
+                  <Layers size={16} />
+                  Importar Backup
+                </button>
+
+                <button onClick={loadSampleLinks} className="btn btn-secondary" style={{ padding: "0.75rem 1.25rem" }}>
+                  <Sparkles size={16} style={{ color: "var(--warning)" }} />
+                  Carregar Exemplos
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -404,11 +581,11 @@ export default function Dashboard() {
 
       {/* MODAL DE DESBLOQUEIO DE LINKS OCULTOS */}
       {hiddenModalOpen && (
-        <div className="modal-overlay">
+        <div className="modal-overlay" style={{ zIndex: 120 }}>
           <div className="modal-content animate-scale-up" style={{ maxWidth: "400px" }}>
             <div className="modal-header">
               <h2 style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "1.25rem" }}>
-                <Lock size={22} style={{ color: "var(--accent)" }} />
+                <Lock size={22} style={{ color: "var(--warning)" }} />
                 Links Ocultos
               </h2>
             </div>
@@ -497,7 +674,23 @@ export default function Dashboard() {
         onClose={() => setInstallOpen(false)}
       />
 
-      {/* CSS extra para regras desktop/mobile específicas no layout do Dashboard */}
+      {/* MODAL DE BACKUP E IMPORTAÇÃO */}
+      <BackupModal
+        isOpen={backupOpen}
+        onClose={() => setBackupOpen(false)}
+      />
+
+      {/* MODAL DE QR CODE */}
+      <QrCodeModal
+        isOpen={qrModalOpen}
+        onClose={() => {
+          setQrModalOpen(false);
+          setLinkForQr(null);
+        }}
+        link={linkForQr}
+      />
+
+      {/* CSS extra para regras desktop/mobile */}
       <style>{`
         .desktop-only {
           display: flex;

@@ -1,7 +1,8 @@
 {
   "short_name": "Eullon Links",
-  "name": "Eullon Links - Organizador de Links",
-  "description": "Salve e organize seus links favoritos com tags, notas, prioridades e sincronização no Firebase.",
+  "name": "Eullon Links - Gerenciador de Favoritos",
+  "id": "/Eullon-Links/",
+  "description": "Salve, categorize e organize seus links favoritos com notas, tags, prioridades, modo offline e sincronização em tempo real.",
   "icons": [
     {
       "src": "icon16.png",
@@ -21,17 +22,30 @@
     {
       "src": "icon128.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "icon128.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ],
-  "start_url": ".",
+  "start_url": "./",
+  "scope": "./",
   "background_color": "#0f172a",
   "theme_color": "#8b5cf6",
   "display": "standalone",
-  "orientation": "portrait"
+  "orientation": "any",
+  "categories": ["productivity", "utilities"],
+  "shortcuts": [
+    {
+      "name": "Todos os Favoritos",
+      "short_name": "Favoritos",
+      "description": "Ver todos os links salvos",
+      "url": "./",
+      "icons": [{ "src": "icon48.png", "sizes": "48x48" }]
+    }
+  ]
 }

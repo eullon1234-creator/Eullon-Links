@@ -8,13 +8,14 @@ import {
   Cloud, 
   CloudOff, 
   Grid, 
-  LogOut,
-  ChevronRight,
-  TrendingUp,
-  FolderOpen,
-  Puzzle,
-  Download,
-  Lock
+  LogOut, 
+  ChevronRight, 
+  TrendingUp, 
+  FolderOpen, 
+  Puzzle, 
+  Download, 
+  Lock,
+  Layers
 } from "lucide-react";
 import { CategoryIcon } from "./CategoryManagerModal";
 
@@ -28,6 +29,7 @@ export default function Sidebar({
   onOpenExtension,
   onOpenInstall,
   onOpenHiddenLinks,
+  onOpenBackup,
   isOpenMobile,
   onCloseMobile
 }) {
@@ -70,6 +72,11 @@ export default function Sidebar({
     if (onCloseMobile) onCloseMobile();
   };
 
+  const handleBackupClick = () => {
+    if (onOpenBackup) onOpenBackup();
+    if (onCloseMobile) onCloseMobile();
+  };
+
   return (
     <aside className={`sidebar ${isOpenMobile ? "open" : ""}`} style={{ zIndex: 99 }}>
       
@@ -82,7 +89,8 @@ export default function Sidebar({
           borderRadius: "var(--radius-md)",
           display: "flex",
           alignItems: "center",
-          justifyContent: "center"
+          justifyContent: "center",
+          boxShadow: "0 0 15px rgba(var(--accent-rgb), 0.2)"
         }}>
           <Bookmark size={24} style={{ fill: "currentColor" }} />
         </div>
@@ -102,7 +110,7 @@ export default function Sidebar({
             title="Sincronização Ativa - Clique para ver detalhes"
           >
             <Cloud size={16} />
-            <span style={{ fontWeight: 600, fontSize: "0.75rem" }}>Nuvem Ativa</span>
+            <span style={{ fontWeight: 600, fontSize: "0.75rem" }}>Nuvem Sincronizada</span>
           </div>
         ) : (
           <div 
@@ -251,8 +259,34 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* Links Ocultos */}
-      <div style={{ marginBottom: "1.5rem", borderTop: "1px solid var(--border-color)", paddingTop: "1.25rem" }}>
+      {/* Links Ocultos & Backup */}
+      <div style={{ marginBottom: "1.25rem", borderTop: "1px solid var(--border-color)", paddingTop: "1.25rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+        
+        {/* Backup & Importar */}
+        <button
+          onClick={handleBackupClick}
+          className="category-item"
+          style={{
+            width: "100%",
+            textAlign: "left",
+            backgroundColor: "var(--bg-tertiary)",
+            borderRadius: "var(--radius-md)",
+            border: "1px solid var(--border-color)",
+            padding: "0.6rem 0.75rem",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between"
+          }}
+        >
+          <span style={{ display: "flex", alignItems: "center" }}>
+            <Layers size={16} style={{ marginRight: "0.75rem", color: "var(--accent)" }} />
+            <span style={{ fontWeight: 600 }}>Backup / Importar</span>
+          </span>
+          <ChevronRight size={14} style={{ color: "var(--text-tertiary)" }} />
+        </button>
+
+        {/* Links Ocultos */}
         <button
           onClick={() => {
             if (onOpenHiddenLinks) onOpenHiddenLinks();
@@ -281,7 +315,7 @@ export default function Sidebar({
       </div>
 
       {/* Extensão e Instalação */}
-      <div style={{ marginBottom: "1.25rem", borderTop: "1px solid var(--border-color)", paddingTop: "1.25rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+      <div style={{ marginBottom: "1.25rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
         <button
           onClick={handleExtensionClick}
           className="category-item"
@@ -299,14 +333,6 @@ export default function Sidebar({
             padding: "0.6rem 0.75rem",
             cursor: "pointer",
             transition: "all var(--transition-fast)"
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = "var(--accent)";
-            e.currentTarget.style.color = "#ffffff";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = "var(--accent-light)";
-            e.currentTarget.style.color = "var(--accent)";
           }}
         >
           <span style={{ display: "flex", alignItems: "center" }}>
@@ -334,16 +360,6 @@ export default function Sidebar({
               padding: "0.6rem 0.75rem",
               cursor: "pointer",
               transition: "all var(--transition-fast)"
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--accent-light)";
-              e.currentTarget.style.color = "var(--accent)";
-              e.currentTarget.style.borderColor = "var(--accent)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--bg-tertiary)";
-              e.currentTarget.style.color = "var(--text-primary)";
-              e.currentTarget.style.borderColor = "var(--border-color)";
             }}
           >
             <span style={{ display: "flex", alignItems: "center" }}>
